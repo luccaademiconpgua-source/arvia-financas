@@ -104,11 +104,10 @@ export function ImportStatement() {
       if (canFixBalance && fixBalance && account && st?.balanceCents !== undefined) {
         await adjustBalance(account.id, st.balanceCents);
       }
-      showToast(
-        res.skipped > 0
-          ? `${res.inserted} lançamentos importados, ${res.skipped} já existiam`
-          : `${res.inserted} lançamentos importados`,
-      );
+      const parts = [`${res.inserted} ${res.inserted === 1 ? "lançamento importado" : "lançamentos importados"}`];
+      if (res.enriched > 0) parts.push(`${res.enriched} do banco ganharam o nome da loja`);
+      if (res.skipped > 0) parts.push(`${res.skipped} já existiam`);
+      showToast(parts.join(", "));
       reset();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao importar.");
@@ -122,7 +121,7 @@ export function ImportStatement() {
   return (
     <Card title="Importar extrato">
       <p className="text-sm text-muted">
-        Baixe o extrato no app ou site do banco em OFX (o mais completo) ou CSV e escolha o arquivo aqui. Funciona com qualquer banco e não depende do Open Finance.
+        Baixe o extrato no app ou site do banco em OFX (o mais completo) ou CSV e escolha o arquivo aqui. Funciona com qualquer banco. Se a conta já recebe o Open Finance, o que já veio não duplica: o extrato só completa o nome da loja em lançamentos como "DÉBITO DE CARTÃO".
       </p>
 
       {noTargets ? (

@@ -121,7 +121,7 @@ export type ImportRow = {
 };
 
 export function importStatement(target: { accountId?: string; cardId?: string }, rows: ImportRow[]) {
-  return rpc<{ inserted: number; skipped: number }>("import_statement", {
+  return rpc<{ inserted: number; skipped: number; enriched: number }>("import_statement", {
     p_account_id: target.accountId ?? null,
     p_card_id: target.cardId ?? null,
     p_rows: rows,
