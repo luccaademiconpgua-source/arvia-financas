@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decodeStatement, parseAmount, parseCsv, parseDate, parseOfx, parseStatement, suggestStatementCategory } from "./statement";
+import { decodeStatement, parseAmount, parseCsv, parseDate, parseOfx, parseStatement, suggestStatementCategory, looksInverted, cleanMerchantName } from "./statement";
 
 const OFX_SGML = `OFXHEADER:100
 DATA:OFXSGML
@@ -124,5 +124,21 @@ describe("categoria sugerida", () => {
     expect(suggestStatementCategory("COPEL DISTRIBUICAO", "despesa")).toBe("Contas");
     expect(suggestStatementCategory("PAGTO SALARIO", "receita")).toBe("Salário");
     expect(suggestStatementCategory("Pix recebido", "receita")).toBe("Outras receitas");
+  });
+});
+
+describe("extrato com sinal trocado", () => {
+  const rows = [
+    { date: "2026-10-28", description: "SUPERMERCADOS BAVARESC PARANAGUA BRA. Cartão 5456", amountCents: 10608 },
+    { date: "2026-10-28", description: "Pix recebido de NATHALIA", amountCents: -2000 },
+    { date: "2026-10-27", description: "TRANSF ENVIADA PIX", amountCents: 3700 },
+    { date: "2026-10-26", description: "MORIFARMA PARANAGUA BRA. Cartão 5456", amountCents: 8298 },
+  ];
+  it("percebe pelo que já veio do banco e pelas palavras", () => {
+    expect(looksInverted(rows, [{ date: "2026-10-28", amountCents: 10608, type: "despesa" }])).toBe(true);
+    expect(looksInverted(rows.map((r) => ({ ...r, amountCents: -r.amountCents })))).toBe(false);
+  });
+  it("limpa o sufixo do cartão", () => {
+    expect(cleanMerchantName("SUPERMERCADOS BAVARESC PARANAGUA BRA. Cartão 5456")).toBe("SUPERMERCADOS BAVARESC PARANAGUA");
   });
 });

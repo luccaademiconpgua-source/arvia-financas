@@ -5,25 +5,31 @@ import { useModeData } from "../hooks/useModeData";
 import { useUI } from "../store/ui";
 import { adjustBalance, afterDataChange, importStatement, type ImportRow } from "../store/actions";
 import { formatBrl } from "../lib/money";
-import { decodeStatement, parseStatement, suggestStatementCategory, type Statement } from "../lib/statement";
+import { cleanMerchantName, decodeStatement, looksInverted, parseStatement, suggestStatementCategory, type Statement } from "../lib/statement";
+import type { Transaction } from "../types";
 
 const fmtDate = (iso: string) => iso.split("-").reverse().join("/");
 
 /** Cartão: compras aparecem como valor positivo em vários bancos (ex.: fatura Nubank em CSV). */
-function guessInvert(st: Statement, isCard: boolean) {
+function guessInvert(st: Statement, dest: string, txs: readonly Transaction[]) {
+  const isCard = dest.startsWith("c:");
+  const id = dest.slice(2);
+  const known = txs.filter((t) => (isCard ? t.cardId === id : t.accountId === id) && (t.source === "open_finance" || t.source === "manual"));
+  if (looksInverted(st.rows, known)) return true;
   if (!isCard) return false;
   const pos = st.rows.filter((r) => r.amountCents > 0).length;
   return pos > st.rows.length / 2;
 }
 
 export function ImportStatement() {
-  const { accounts, cards, categories, mode } = useModeData();
+  const { accounts, cards, categories, mode, transactions } = useModeData();
   const showToast = useUI((s) => s.showToast);
   const inputRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState("");
   const [st, setSt] = useState<Statement | null>(null);
   const [dest, setDest] = useState("");
   const [invert, setInvert] = useState(false);
+  const [autoInv, setAutoInv] = useState(false);
   const [fixBalance, setFixBalance] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -43,7 +49,9 @@ export function ImportStatement() {
       setFileName(f.name);
       setSt(parsed);
       setDest(first);
-      setInvert(guessInvert(parsed, first.startsWith("c:")));
+      const g = guessInvert(parsed, first, transactions);
+      setInvert(g);
+      setAutoInv(g && !first.startsWith("c:"));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não consegui ler o arquivo.");
     }
@@ -51,7 +59,11 @@ export function ImportStatement() {
 
   function changeDest(v: string) {
     setDest(v);
-    if (st) setInvert(guessInvert(st, v.startsWith("c:")));
+    if (st) {
+      const g = guessInvert(st, v, transactions);
+      setInvert(g);
+      setAutoInv(g && !v.startsWith("c:"));
+    }
   }
 
   const prepared = useMemo(() => {
@@ -76,7 +88,7 @@ export function ImportStatement() {
         type,
         amount_cents: Math.abs(signed),
         date: r.date,
-        description: r.description,
+        description: cleanMerchantName(r.description),
         category_id: cat?.id,
       });
     }
@@ -191,6 +203,9 @@ export function ImportStatement() {
                 {prepared.rows.length > 6 && <p className="mt-1 text-xs text-muted">e mais {prepared.rows.length - 6}.</p>}
               </div>
 
+              {autoInv && invert && (
+                <p className="rounded-lg bg-page p-3 text-sm">Este arquivo veio com entradas e saídas trocadas (comum no C6). A Arvia já desinverteu; confira a prévia acima.</p>
+              )}
               <label className="flex items-start gap-2 text-sm">
                 <input type="checkbox" className="mt-1 size-4" checked={invert} onChange={(e) => setInvert(e.target.checked)} />
                 <span>Inverter entradas e saídas (marque se as compras apareceram como entrada)</span>

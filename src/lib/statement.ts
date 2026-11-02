@@ -304,3 +304,36 @@ export function suggestStatementCategory(description: string, kind: "receita" | 
   for (const [re, name] of kind === "despesa" ? EXPENSE_RULES : INCOME_RULES) if (re.test(s)) return name;
   return kind === "despesa" ? "Outras" : "Outras receitas";
 }
+
+// ---------- sinal invertido ----------
+
+const OUT_WORDS = /\b(enviad[oa]|compra|cartao \d|pagamento|pagto|debito|saque|tarifa|boleto)\b/;
+const IN_WORDS = /\b(recebid[oa]|deposito|salario|estorno|rendimento)\b/;
+
+/**
+ * O arquivo veio com sinais trocados (saída positiva)? Vota com duas pistas:
+ * 1) lançamentos que já vieram pelo Open Finance com mesmo valor e data (±2 dias): o tipo deles é a verdade;
+ * 2) palavras: "enviado", "compra", "cartão 1234" são saídas; "recebido", "salário" são entradas.
+ */
+export function looksInverted(rows: ReadonlyArray<{ date: string; description: string; amountCents: number }>, known: ReadonlyArray<{ date: string; amountCents: number; type: string }> = []): boolean {
+  let same = 0;
+  let flipped = 0;
+  const day = (d: string) => Date.parse(d) / 86400000;
+  for (const r of rows) {
+    const abs = Math.abs(r.amountCents);
+    const k = known.find((t) => t.amountCents === abs && Math.abs(day(t.date) - day(r.date)) <= 2 && (t.type === "receita" || t.type === "despesa"));
+    if (k) {
+      const isOut = r.amountCents < 0;
+      if ((k.type === "despesa") === isOut) same++;
+      else flipped++;
+      continue;
+    }
+    const d = strip(r.description);
+    if (OUT_WORDS.test(d)) r.amountCents < 0 ? same++ : flipped++;
+    else if (IN_WORDS.test(d)) r.amountCents > 0 ? same++ : flipped++;
+  }
+  return flipped >= 3 && flipped > same * 2;
+}
+
+/** Tira o sufixo que alguns bancos põem na compra no débito ("LOJA X CIDADE BRA. Cartão 5456"). */
+export const cleanMerchantName = (s: string) => s.replace(/\s+BRA\.?\s*Cart[aã]o\s*\d*\s*$/i, "").replace(/\s+BRA\.?\s*$/i, "").trim();
