@@ -3,7 +3,7 @@ import { Card } from "./ui";
 import { Field, inputClass, PrimaryButton, SecondaryButton } from "./Sheet";
 import { useModeData } from "../hooks/useModeData";
 import { useUI } from "../store/ui";
-import { adjustBalance, detectTransfers, importStatement, type ImportRow } from "../store/actions";
+import { adjustBalance, afterDataChange, importStatement, type ImportRow } from "../store/actions";
 import { formatBrl } from "../lib/money";
 import { decodeStatement, parseStatement, suggestStatementCategory, type Statement } from "../lib/statement";
 
@@ -100,7 +100,7 @@ export function ImportStatement() {
     setError("");
     try {
       const res = await importStatement(isCard ? { cardId: destId } : { accountId: destId }, prepared.rows);
-      await detectTransfers().catch(() => undefined);
+      await afterDataChange().catch(() => undefined);
       if (canFixBalance && fixBalance && account && st?.balanceCents !== undefined) {
         await adjustBalance(account.id, st.balanceCents);
       }

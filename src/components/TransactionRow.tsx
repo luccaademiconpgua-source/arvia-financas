@@ -1,5 +1,5 @@
 import { format, parseISO } from "date-fns";
-import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, PiggyBank, SlidersHorizontal } from "lucide-react";
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BadgeCheck, PiggyBank, SlidersHorizontal } from "lucide-react";
 import { formatBrl } from "../lib/money";
 import { useUI } from "../store/ui";
 import type { Account, Card, Category, Transaction } from "../types";
@@ -28,7 +28,10 @@ export function TransactionRow({ t, lookups }: { t: Transaction; lookups: Lookup
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-medium">{t.description}</span>
-          <span className="block truncate text-xs text-muted">{txSubtitle(t, lookups)}</span>
+          <span className="flex min-w-0 items-center gap-1 text-xs text-muted">
+            {t.bankMatch && <BadgeCheck size={14} aria-label="Conferido no banco" className="shrink-0 text-income" />}
+            <span className="truncate">{txSubtitle(t, lookups)}</span>
+          </span>
         </span>
         <span className="text-right">
           <span className={`num block text-sm font-semibold ${tone === "neutral" ? "text-muted" : tone === "in" ? "text-income" : "text-expense"}`}>

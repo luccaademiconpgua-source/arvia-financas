@@ -99,8 +99,34 @@ export async function fetchModeData(mode: Mode): Promise<ModeData> {
     accounts: accounts.map((r) => toAccount(r, balances, mode)),
     cards: cards.map((r) => toCard(r, mode)),
     categories: categories.map((r) => ({ id: str(r["id"]), mode, name: str(r["name"]), kind: str(r["kind"]) as Category["kind"], essential: Boolean(r["essential"]) })),
-    transactions: transactions.map((r) => toTx(r, mode)),
+    transactions: reconcileView(transactions, mode),
     goals: goals.map((r) => ({ id: str(r["id"]), mode, name: str(r["name"]), targetCents: int(r["target_cents"]), kind: str(r["kind"]) as Goal["kind"] })),
     debts: debts.map((r) => ({ id: str(r["id"]), mode, name: str(r["name"]), installmentCount: int(r["installment_count"]), paidInstallments: int(r["paid_installments"]), installmentCents: int(r["installment_cents"]), nextDue: str(r["next_due"]) })),
   };
+}
+
+/** Junta o lançamento do banco ao manual/nota que ele confirma: o do banco some da lista e dos totais. */
+export function reconcileView(rows: Row[], mode: Mode): Transaction[] {
+  const byMatch = new Map<string, Row>();
+  for (const r of rows) if (r["match_id"]) byMatch.set(String(r["match_id"]), r);
+  const ids = new Set(rows.map((r) => String(r["id"])));
+  const out: Transaction[] = [];
+  for (const r of rows) {
+    // o do banco só some se o par também estiver visível aqui
+    if (r["match_id"] && ids.has(String(r["match_id"]))) continue;
+    const t = toTx(r, mode);
+    const b = byMatch.get(t.id);
+    if (b) {
+      t.bankMatch = {
+        id: String(b["id"]),
+        description: String(b["description"] ?? ""),
+        date: String(b["date"]),
+        source: String(b["source"]) as "open_finance" | "extrato",
+        ...(b["account_id"] ? { accountId: String(b["account_id"]) } : {}),
+        ...(b["card_id"] ? { cardId: String(b["card_id"]) } : {}),
+      };
+    }
+    out.push(t);
+  }
+  return out;
 }

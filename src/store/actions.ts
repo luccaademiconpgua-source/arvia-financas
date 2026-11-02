@@ -27,8 +27,8 @@ async function rpc<T>(name: string, args: Record<string, unknown>): Promise<T> {
   return data as T;
 }
 
-export function addTransaction(d: TxDraft): Promise<string> {
-  return rpc<string>("add_transaction", {
+export async function addTransaction(d: TxDraft): Promise<string> {
+  const id = await rpc<string>("add_transaction", {
     p_scope: d.mode,
     p_type: d.type,
     p_description: d.description,
@@ -44,6 +44,8 @@ export function addTransaction(d: TxDraft): Promise<string> {
     p_nfce_id: d.nfceId ?? null,
     p_external_id: d.externalId ?? null,
   });
+  void afterDataChange().catch(() => undefined);
+  return id;
 }
 
 export async function setTransfer(id: string, value: boolean): Promise<void> {
@@ -52,6 +54,20 @@ export async function setTransfer(id: string, value: boolean): Promise<void> {
 
 export function classifyTransaction(id: string, transfer: boolean, categoryId: string | null, applySame: boolean) {
   return rpc<number>("classify_transaction", { p_id: id, p_transfer: transfer, p_category_id: categoryId, p_apply_same: applySame });
+}
+
+export async function unlinkMatch(id: string): Promise<void> {
+  await rpc<null>("unlink_match", { p_id: id });
+}
+
+/** Depois de qualquer entrada de dados: marca transferências e concilia banco x nota/manual. */
+export async function afterDataChange(): Promise<void> {
+  try {
+    await supabase.rpc("detect_transfers");
+    await supabase.rpc("reconcile");
+  } finally {
+    useRefresh.getState().bump();
+  }
 }
 
 export function detectTransfers() {

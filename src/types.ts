@@ -63,6 +63,8 @@ export type Transaction = {
   source: "manual" | "nfce" | "open_finance" | "fatura" | "extrato";
   /** movimentação entre contas próprias: não conta como receita nem despesa */
   isTransfer?: boolean;
+  /** lançamento do banco que confirma este (conciliação); o do banco não aparece na lista nem nos totais */
+  bankMatch?: { id: string; description: string; date: string; source: "open_finance" | "extrato"; accountId?: string; cardId?: string };
   nfceId?: string;
   /** fatura afetada: compra no crédito soma nela, pagamento de fatura a quita */
   invoiceId?: string;

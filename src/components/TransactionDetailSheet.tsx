@@ -3,7 +3,7 @@ import { format, parseISO } from "date-fns";
 import { PrimaryButton, SecondaryButton, Sheet } from "./Sheet";
 import { useModeData } from "../hooks/useModeData";
 import { formatBrl } from "../lib/money";
-import { classifyTransaction, deleteTransaction } from "../store/actions";
+import { classifyTransaction, deleteTransaction, unlinkMatch } from "../store/actions";
 import { inputClass } from "./Sheet";
 import type { Transaction } from "../types";
 import { useUI } from "../store/ui";
@@ -66,6 +66,7 @@ export function TransactionDetailSheet() {
           </div>
         ))}
       </dl>
+      {t.bankMatch && <BankMatch t={t} />}
       {canTransfer && <Classify key={t.id} t={t} />}
       <p className="mt-3 text-sm text-muted">Excluir desfaz o efeito deste lançamento no saldo, nas faturas e nas metas.</p>
       <div className="mt-4 flex gap-2">
@@ -160,5 +161,36 @@ function Classify({ t }: { t: Transaction }) {
         {busy ? "Salvando…" : "Salvar classificação"}
       </SecondaryButton>
     </fieldset>
+  );
+}
+
+function BankMatch({ t }: { t: Transaction }) {
+  const { accounts, cards } = useModeData();
+  const showToast = useUI((s) => s.showToast);
+  const [busy, setBusy] = useState(false);
+  const m = t.bankMatch!;
+  const where = m.cardId ? cards.find((c) => c.id === m.cardId)?.label : accounts.find((a) => a.id === m.accountId)?.name;
+  return (
+    <div className="mt-3 rounded-lg border border-income/30 bg-income-bg p-3 text-sm">
+      <p className="font-medium text-income">Conferido no banco</p>
+      <p className="mt-1">
+        {m.description} em {format(parseISO(m.date), "dd/MM/yyyy")}
+        {where ? `, ${where}` : ""} ({m.source === "open_finance" ? "Open Finance" : "extrato importado"}).
+      </p>
+      <p className="mt-1 text-xs text-muted">É a mesma compra: conta uma vez só, com os dados deste lançamento.</p>
+      <SecondaryButton
+        type="button"
+        className="mt-2 bg-card"
+        disabled={busy}
+        onClick={() => {
+          setBusy(true);
+          void unlinkMatch(t.id)
+            .then(() => showToast("Vínculo desfeito: os dois voltam a contar separados"))
+            .finally(() => setBusy(false));
+        }}
+      >
+        Não é a mesma compra
+      </SecondaryButton>
+    </div>
   );
 }
