@@ -102,7 +102,16 @@ Deno.serve(async (req) => {
         body: JSON.stringify({ ...(itemId ? { itemId } : {}), options: { clientUserId: uid } }),
       });
       if (!data?.accessToken) throw new HttpError(502, "A Pluggy não devolveu o token de conexão.");
-      return json({ accessToken: data.accessToken });
+      // Conta gratuita/trial só pode criar conexões pelo conector MeuPluggy: procuramos o id dele
+      let connectorIds: number[] = [];
+      try {
+        const list = await pluggy(`/connectors?name=${encodeURIComponent("meupluggy")}`, apiKey);
+        const found = (list?.results ?? []).filter((c: any) => String(c?.name ?? "").toLowerCase().replace(/\s/g, "").includes("meupluggy"));
+        connectorIds = found.map((c: any) => Number(c.id)).filter((n: number) => Number.isFinite(n));
+      } catch {
+        connectorIds = [];
+      }
+      return json({ accessToken: data.accessToken, connectorIds });
     }
 
     if (action === "save_item") {

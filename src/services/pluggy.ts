@@ -60,7 +60,7 @@ export async function listItems(): Promise<PluggyItem[]> {
   return (data ?? []) as PluggyItem[];
 }
 
-export const connectToken = (itemId?: string) => call<{ accessToken: string }>({ action: "connect_token", item_id: itemId });
+export const connectToken = (itemId?: string) => call<{ accessToken: string; connectorIds?: number[] }>({ action: "connect_token", item_id: itemId });
 
 export async function saveItem(itemId: string) {
   const r = await call<SyncResult>({ action: "save_item", item_id: itemId });
@@ -79,14 +79,23 @@ export async function disconnect(itemId: string) {
 }
 
 export async function openWidget(itemId: string | undefined, onItem: (itemId: string) => void, onError: (m: string) => void) {
-  const { accessToken } = await connectToken(itemId);
+  const { accessToken, connectorIds } = await connectToken(itemId);
+  // 200 é o id público do conector MeuPluggy; usado se a busca no servidor não achar
+  const ids = connectorIds && connectorIds.length ? connectorIds : [200];
   const { PluggyConnect } = await import("pluggy-connect-sdk");
   const widget = new PluggyConnect({
     connectToken: accessToken,
     includeSandbox: false,
-    ...(itemId ? { updateItem: itemId } : {}),
+    ...(itemId ? { updateItem: itemId } : { connectorIds: ids, selectedConnectorId: ids[0] }),
     onSuccess: (d: { item: { id: string } }) => onItem(d.item.id),
-    onError: (e: { message: string }) => onError(e.message),
+    onError: (e: { message: string }) => onError(friendlyError(e.message)),
   });
   await widget.init();
+}
+
+export function friendlyError(msg: string): string {
+  if (/TRIAL_CLIENT_ITEM_CREATE_NOT_ALLOWED/i.test(msg)) {
+    return "Sua conta da Pluggy é de teste e só pode conectar pelo MeuPluggy. Conecte seus bancos em meu.pluggy.ai e, na janela da Arvia, escolha MeuPluggy (não o banco direto).";
+  }
+  return msg;
 }

@@ -3,7 +3,7 @@ import { Card, Pill } from "../components/ui";
 import { Field, inputClass, PrimaryButton, SecondaryButton } from "../components/Sheet";
 import { useUI } from "../store/ui";
 import { ImportStatement } from "../components/ImportStatement";
-import { disconnect, getStatus, listItems, openWidget, removeCredentials, saveCredentials, saveItem, syncAll, type PluggyItem } from "../services/pluggy";
+import { disconnect, friendlyError, getStatus, listItems, openWidget, removeCredentials, saveCredentials, saveItem, syncAll, type PluggyItem } from "../services/pluggy";
 
 function ago(iso: string | null) {
   if (!iso) return "ainda não sincronizou";
@@ -76,7 +76,7 @@ export function Connections() {
             await load();
           });
         },
-        (m) => setError(m),
+        (m) => setError(friendlyError(m)),
       );
     });
 
@@ -142,6 +142,11 @@ export function Connections() {
               </SecondaryButton>
             )}
           </div>
+          <ItemIdForm busy={!!busy} onSave={(id) => void run("save", async () => {
+            const r = await saveItem(id);
+            showToast(r.status === "ok" ? `${r.connector ?? "Banco"} sincronizado: ${r.transactions ?? 0} lançamentos novos` : (r.error ?? "Conectado, mas a leitura falhou"));
+            await load();
+          })} />
           <p className="mt-3 text-xs text-muted">
             Credenciais ativas (Client ID terminado em {hint}). O Meu Pluggy atualiza os dados a cada 24 horas no plano gratuito.
           </p>
@@ -179,6 +184,31 @@ export function Connections() {
           O plano gratuito do Meu Pluggy é para uso pessoal, com contas do mesmo titular. Transferências entre as suas contas aparecem como despesa e receita.
         </p>
       </Card>
+    </div>
+  );
+}
+
+function ItemIdForm({ busy, onSave }: { busy: boolean; onSave: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [id, setId] = useState("");
+  const valid = /^[0-9a-f-]{8,64}$/i.test(id.trim());
+  if (!open) {
+    return (
+      <button type="button" className="mt-3 block text-sm text-brand underline underline-offset-4" onClick={() => setOpen(true)}>
+        Já tenho o Item ID da conexão
+      </button>
+    );
+  }
+  return (
+    <div className="mt-3 flex flex-col gap-2 rounded-lg border border-line p-3">
+      <p className="text-sm text-muted">
+        No dashboard.pluggy.ai, abra sua aplicação, clique em Ir para Demo, conecte pelo MeuPluggy e use o menu de três pontinhos para copiar o Item ID. Cole aqui:
+      </p>
+      <input className={inputClass} value={id} onChange={(e) => setId(e.target.value)} placeholder="ex.: 7f3c1e2a-..." autoComplete="off" />
+      <div className="flex gap-2">
+        <PrimaryButton type="button" disabled={busy || !valid} onClick={() => onSave(id.trim())}>Conectar com este Item ID</PrimaryButton>
+        <SecondaryButton type="button" onClick={() => setOpen(false)}>Cancelar</SecondaryButton>
+      </div>
     </div>
   );
 }
