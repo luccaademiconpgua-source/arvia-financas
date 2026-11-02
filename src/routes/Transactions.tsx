@@ -14,6 +14,7 @@ const chips = [
   { value: "receita", label: "Receitas" },
   { value: "despesa", label: "Despesas" },
   { value: "reserva", label: "Reservas" },
+  { value: "transferencia", label: "Transferências" },
 ];
 const payments = [
   { value: "", label: "Todas as formas" },
@@ -41,7 +42,9 @@ export function Transactions() {
     const nq = norm(q.trim());
     return sortByDateDesc(
       transactions.filter((t) => {
-        if (type && t.type !== type) return false;
+        if (type === "transferencia") {
+          if (!t.isTransfer) return false;
+        } else if (type && (t.type !== type || t.isTransfer)) return false;
         if (cat && t.categoryId !== cat) return false;
         if (pay && t.payment !== pay) return false;
         if (nq && !norm(t.description).includes(nq)) return false;

@@ -61,6 +61,8 @@ export type Transaction = {
   /** false: histórico do seed e despesa no cartão. true: mexe no saldo da conta */
   affectsBalance: boolean;
   source: "manual" | "nfce" | "open_finance" | "fatura" | "extrato";
+  /** movimentação entre contas próprias: não conta como receita nem despesa */
+  isTransfer?: boolean;
   nfceId?: string;
   /** fatura afetada: compra no crédito soma nela, pagamento de fatura a quita */
   invoiceId?: string;

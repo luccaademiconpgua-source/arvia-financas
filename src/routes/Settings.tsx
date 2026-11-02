@@ -7,6 +7,7 @@ import { usePrefs } from "../store/prefs";
 import { useUI } from "../store/ui";
 import { useRefresh } from "../store/refresh";
 import { useData } from "../store/data";
+import { detectTransfers } from "../store/actions";
 import type { Mode } from "../types";
 
 const TABLES = ["accounts", "cards", "card_invoices", "categories", "goals", "debts", "transactions", "nfce_scans", "vehicles", "vehicle_logs", "vehicle_reminders"] as const;
@@ -99,6 +100,7 @@ export function Settings() {
         <SecondaryButton type="button" onClick={() => void exportJson()}>Exportar arvia-backup.json</SecondaryButton>
         <p className="mt-2 text-sm text-muted">O backup inclui tudo o que você enxerga: seus dados pessoais e os da casa.</p>
       </Card>
+      <TransferNamesCard />
       <ResetCard />
       <Card title="Sessão">
         <SecondaryButton type="button" onClick={() => void signOut()}>Sair da conta</SecondaryButton>
@@ -157,6 +159,80 @@ function ResetCard() {
           </div>
         </div>
       )}
+    </Card>
+  );
+}
+
+function TransferNamesCard() {
+  const { profile, members, session, reload } = useAuth();
+  const showToast = useUI((s) => s.showToast);
+  const saved = profile?.transferNames ?? [];
+  const names = saved.length ? saved : profile?.name ? [profile.name] : [];
+  const [draft, setDraft] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const partner = members.find((m) => m.id !== profile?.id);
+
+  async function save(next: string[]) {
+    setBusy(true);
+    setMsg("");
+    const { error } = await supabase.from("profiles").update({ transfer_names: next }).eq("id", session?.user.id ?? "");
+    setBusy(false);
+    if (error) return setMsg(error.message);
+    await reload();
+  }
+
+  async function run() {
+    setBusy(true);
+    setMsg("");
+    try {
+      const r = await detectTransfers();
+      const total = r.by_name + r.pairs * 2;
+      setMsg(total === 0 ? "Nenhuma transferência nova encontrada." : `${total} lançamentos marcados como transferência.`);
+      showToast("Busca concluída");
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Falhou.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card title="Transferências entre suas contas">
+      <p className="text-sm text-muted">
+        Dinheiro que só muda de uma conta sua para outra não é gasto nem ganho. A Arvia marca como transferência quando o Pix vem ou vai para um dos nomes abaixo, ou quando sai de uma conta e entra o mesmo valor em outra conta sua em até 3 dias. Você pode corrigir qualquer lançamento abrindo ele.
+      </p>
+      <p className="mt-3 text-sm font-medium">Nomes que são você (como aparecem no extrato)</p>
+      <ul className="mt-2 flex flex-wrap gap-2">
+        {names.map((n) => (
+          <li key={n} className="flex items-center gap-1 rounded-full border border-line py-1 pr-1 pl-3 text-sm">
+            {n}
+            <button type="button" aria-label={`Remover ${n}`} disabled={busy} onClick={() => void save(names.filter((x) => x !== n))} className="flex size-8 items-center justify-center rounded-full text-muted hover:text-danger">×</button>
+          </li>
+        ))}
+      </ul>
+      <form
+        className="mt-2 flex flex-wrap gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const v = draft.trim().replace(/\s+/g, " ");
+          if (v.split(" ").filter((w) => w.length >= 3).length < 2) return setMsg("Use nome e sobrenome, como aparece no extrato.");
+          setDraft("");
+          void save([...new Set([...names, v])]);
+        }}
+      >
+        <input className={`${inputClass} min-w-0 flex-1`} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Nome completo, como no Pix" />
+        <SecondaryButton type="submit" disabled={busy}>Adicionar</SecondaryButton>
+      </form>
+      {partner && (
+        <p className="mt-2 text-xs text-muted">
+          Se o dinheiro entre você e {partner.name} deve contar como transferência (e não como gasto ou ganho), adicione o nome completo dela aqui.
+        </p>
+      )}
+      <PrimaryButton type="button" className="mt-3" disabled={busy} onClick={() => void run()}>
+        {busy ? "Procurando…" : "Procurar transferências agora"}
+      </PrimaryButton>
+      {msg && <p className="mt-2 text-sm" role="status">{msg}</p>}
     </Card>
   );
 }

@@ -35,3 +35,12 @@ describe("maiores despesas da categoria", () => {
     expect(topExpenses(txs, "2026-11", "Outras", cats).map((t) => t.amountCents)).toEqual([500]);
   });
 });
+
+describe("transferências não contam como gasto", () => {
+  it("ficam fora do acumulado e dos maiores gastos", () => {
+    const t1 = { ...tx("2026-11-01", 5000), isTransfer: true };
+    const t2 = tx("2026-11-01", 700);
+    expect(cumulativeSpend([t1, t2], "2026-11")[0]).toBe(700);
+    expect(topExpenses([t1, t2], "2026-11", "Outras", []).map((t) => t.amountCents)).toEqual([700]);
+  });
+});

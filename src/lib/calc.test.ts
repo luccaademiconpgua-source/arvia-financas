@@ -69,3 +69,19 @@ describe("meta", () => {
     expect(goalProgress(meta, [tx({ type: "reserva", goalId: "g1", amountCents: 99999 })])).toBe(1);
   });
 });
+
+import { summarize as summarizeT, expenseByCategory as ebc } from "./calc";
+describe("transferências entre contas próprias", () => {
+  it("não entram em receitas, despesas nem categorias", () => {
+    const base = { mode: "pessoal" as const, payment: "pix" as const, affectsBalance: false, source: "open_finance" as const };
+    const txs = [
+      { ...base, id: "a", type: "despesa" as const, description: "LUCCA", amountCents: 10000, date: "2026-11-01", isTransfer: true },
+      { ...base, id: "b", type: "receita" as const, description: "LUCCA", amountCents: 20000, date: "2026-11-01", isTransfer: true },
+      { ...base, id: "c", type: "despesa" as const, description: "Mercado", amountCents: 3000, date: "2026-11-01" },
+    ];
+    const s = summarizeT(txs, "mes", "2026-11-02");
+    expect(s.receitasCents).toBe(0);
+    expect(s.despesasCents).toBe(3000);
+    expect(ebc(txs, "2026-11", []).map((x) => x.cents)).toEqual([3000]);
+  });
+});

@@ -19,7 +19,7 @@ export function Home() {
   const thisYm = today.slice(0, 7);
   const month = summarize(transactions, "mes", today);
   const emergency = goals.find((g) => g.kind === "emergencia");
-  const parcelas = inMonth(transactions, thisYm).filter((t) => t.type === "despesa" && categories.find((c) => c.id === t.categoryId)?.name === "Parcelas").reduce((s, t) => s + t.amountCents, 0);
+  const parcelas = inMonth(transactions, thisYm).filter((t) => t.type === "despesa" && !t.isTransfer && categories.find((c) => c.id === t.categoryId)?.name === "Parcelas").reduce((s, t) => s + t.amountCents, 0);
   const limit = cards.reduce((s, c) => s + (c.limitCents ?? 0), 0);
   const used = cards.reduce((s, c) => s + c.invoices.filter((i) => i.status !== "paga").reduce((x, i) => x + i.amountCents, 0), 0);
   const health = healthScore({

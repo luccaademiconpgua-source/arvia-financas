@@ -67,7 +67,7 @@ export type Summary = {
 };
 
 const sumType = (txs: readonly Transaction[], type: Transaction["type"]): number =>
-  txs.reduce((s, t) => (t.type === type ? s + t.amountCents : s), 0);
+  txs.reduce((s, t) => (t.type === type && !t.isTransfer ? s + t.amountCents : s), 0);
 
 export function inMonth(txs: readonly Transaction[], ym: string): Transaction[] {
   return txs.filter((t) => t.date.startsWith(ym));
@@ -95,8 +95,8 @@ export function summarize(txs: readonly Transaction[], range: Range, today: stri
     despesasCents,
     sobrouCents,
     sobrouPct: receitasCents > 0 ? sobrouCents / receitasCents : null,
-    recebidoAteHojeCents: mes ? list.reduce((s, t) => (t.type === "receita" && t.date <= today ? s + t.amountCents : s), 0) : null,
-    pagoNoCartaoCents: mes ? list.reduce((s, t) => (t.type === "despesa" && (t.payment === "credito" || t.cardId) ? s + t.amountCents : s), 0) : null,
+    recebidoAteHojeCents: mes ? list.reduce((s, t) => (t.type === "receita" && !t.isTransfer && t.date <= today ? s + t.amountCents : s), 0) : null,
+    pagoNoCartaoCents: mes ? list.reduce((s, t) => (t.type === "despesa" && !t.isTransfer && (t.payment === "credito" || t.cardId) ? s + t.amountCents : s), 0) : null,
   };
 }
 
@@ -122,7 +122,7 @@ export function expenseByCategory(txs: readonly Transaction[], ym: string, categ
   const totals = new Map<string, number>();
   let total = 0;
   for (const t of inMonth(txs, ym)) {
-    if (t.type !== "despesa") continue;
+    if (t.type !== "despesa" || t.isTransfer) continue;
     const name = names.get(t.categoryId ?? "") ?? "Outras";
     totals.set(name, (totals.get(name) ?? 0) + t.amountCents);
     total += t.amountCents;

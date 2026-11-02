@@ -1,5 +1,6 @@
 import { supabase } from "../lib/supabase";
 import { useRefresh } from "../store/refresh";
+import { detectTransfers } from "../store/actions";
 
 export type PluggyItem = {
   item_id: string;
@@ -64,12 +65,14 @@ export const connectToken = (itemId?: string) => call<{ accessToken: string; con
 
 export async function saveItem(itemId: string) {
   const r = await call<SyncResult>({ action: "save_item", item_id: itemId });
+  await detectTransfers().catch(() => undefined);
   useRefresh.getState().bump();
   return r;
 }
 
 export async function syncAll() {
   const r = await call<{ results: SyncResult[] }>({ action: "sync" });
+  await detectTransfers().catch(() => undefined);
   useRefresh.getState().bump();
   return r.results;
 }

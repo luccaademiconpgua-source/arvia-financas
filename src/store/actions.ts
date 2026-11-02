@@ -46,6 +46,14 @@ export function addTransaction(d: TxDraft): Promise<string> {
   });
 }
 
+export async function setTransfer(id: string, value: boolean): Promise<void> {
+  await rpc<null>("set_transfer", { p_id: id, p_value: value });
+}
+
+export function detectTransfers() {
+  return rpc<{ by_name: number; pairs: number }>("detect_transfers", {});
+}
+
 export async function deleteTransaction(id: string): Promise<void> {
   await rpc<null>("delete_transaction", { p_id: id });
 }

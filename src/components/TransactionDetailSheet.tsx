@@ -3,7 +3,7 @@ import { format, parseISO } from "date-fns";
 import { PrimaryButton, SecondaryButton, Sheet } from "./Sheet";
 import { useModeData } from "../hooks/useModeData";
 import { formatBrl } from "../lib/money";
-import { deleteTransaction } from "../store/actions";
+import { deleteTransaction, setTransfer } from "../store/actions";
 import { useUI } from "../store/ui";
 
 const typeLabel = { receita: "Receita", despesa: "Despesa", reserva: "Reserva", ajuste: "Ajuste de saldo" } as const;
@@ -51,6 +51,8 @@ export function TransactionDetailSheet() {
   ];
   if (data.goal) rows.push(["Meta", data.goal]);
   if (t.type === "despesa") rows.push(["Essencial", t.essential ? "Sim" : "Não"]);
+  if (t.isTransfer) rows.push(["Conta nos totais", "Não, é transferência"]);
+  const canTransfer = (t.type === "receita" || t.type === "despesa") && t.source !== "fatura";
 
   return (
     <Sheet title={t.description} onClose={done}>
@@ -62,6 +64,22 @@ export function TransactionDetailSheet() {
           </div>
         ))}
       </dl>
+      {canTransfer && (
+        <div className="mt-3 rounded-lg border border-line p-3">
+          <p className="text-sm">
+            {t.isTransfer
+              ? "Marcado como transferência entre suas contas: não entra em receitas nem despesas."
+              : "Foi dinheiro passando de uma conta sua para outra? Marque como transferência para não contar como gasto nem como ganho."}
+          </p>
+          <SecondaryButton
+            type="button"
+            className="mt-2"
+            onClick={() => void setTransfer(t.id, !t.isTransfer).then(() => showToast(t.isTransfer ? "Voltou a contar nos totais" : "Marcado como transferência"))}
+          >
+            {t.isTransfer ? "Não é transferência" : "É transferência entre minhas contas"}
+          </SecondaryButton>
+        </div>
+      )}
       <p className="mt-3 text-sm text-muted">Excluir desfaz o efeito deste lançamento no saldo, nas faturas e nas metas.</p>
       <div className="mt-4 flex gap-2">
         {confirming ? (

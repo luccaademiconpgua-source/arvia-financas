@@ -9,7 +9,7 @@ import { shiftMonth, todayIso } from "../lib/clock";
 import { formatBrl } from "../lib/money";
 import type { Transaction } from "../types";
 
-const sum = (txs: Transaction[], type: Transaction["type"]) => txs.reduce((s, t) => (t.type === type ? s + t.amountCents : s), 0);
+const sum = (txs: Transaction[], type: Transaction["type"]) => txs.reduce((s, t) => (t.type === type && !t.isTransfer ? s + t.amountCents : s), 0);
 const payLabel = { pix: "Pix", dinheiro: "Dinheiro", debito: "Débito", credito: "Crédito" } as const;
 
 function Variation({ cur, prev, goodWhenUp }: { cur: number; prev: number; goodWhenUp: boolean }) {
@@ -32,7 +32,7 @@ export function Reports() {
   const prev = inMonth(transactions, shiftMonth(ym, -1));
   const rec = sum(month, "receita");
   const desp = sum(month, "despesa");
-  const expenses = month.filter((t) => t.type === "despesa");
+  const expenses = month.filter((t) => t.type === "despesa" && !t.isTransfer);
   const essential = expenses.filter((t) => (t.essential ?? categories.find((c) => c.id === t.categoryId)?.essential) === true).reduce((s, t) => s + t.amountCents, 0);
   const slices = expenseByCategory(transactions, ym, categories);
   const byPay = (["pix", "dinheiro", "debito", "credito"] as const).map((p) => ({ p, cents: expenses.filter((t) => t.payment === p).reduce((s, t) => s + t.amountCents, 0) })).filter((x) => x.cents > 0);

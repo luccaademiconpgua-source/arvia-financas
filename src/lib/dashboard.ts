@@ -10,7 +10,7 @@ export function cumulativeSpend(txs: readonly Transaction[], ym: string): number
   const days = daysInMonth(ym);
   const perDay = new Array<number>(days).fill(0);
   for (const t of txs) {
-    if (t.type !== "despesa" || !t.date.startsWith(ym)) continue;
+    if (t.type !== "despesa" || t.isTransfer || !t.date.startsWith(ym)) continue;
     const d = Number(t.date.slice(8, 10));
     if (d >= 1 && d <= days) perDay[d - 1]! += t.amountCents;
   }
@@ -52,7 +52,7 @@ export function paceDelta(points: PacePoint[]): { day: number; atual: number; an
 export function topExpenses(txs: readonly Transaction[], ym: string, categoryName: string, categories: readonly Category[], n = 3): Transaction[] {
   const names = new Map(categories.map((c) => [c.id, c.name]));
   return txs
-    .filter((t) => t.type === "despesa" && t.date.startsWith(ym) && (names.get(t.categoryId ?? "") ?? "Outras") === categoryName)
+    .filter((t) => t.type === "despesa" && !t.isTransfer && t.date.startsWith(ym) && (names.get(t.categoryId ?? "") ?? "Outras") === categoryName)
     .sort((a, b) => b.amountCents - a.amountCents)
     .slice(0, n);
 }

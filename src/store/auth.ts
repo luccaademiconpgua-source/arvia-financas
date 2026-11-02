@@ -3,7 +3,7 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import { useData } from "./data";
 
-export type Profile = { id: string; name: string; householdId: string | null };
+export type Profile = { id: string; name: string; householdId: string | null; transferNames: string[] };
 export type Household = { id: string; name: string; inviteCode: string };
 
 type AuthState = {
@@ -18,8 +18,8 @@ type AuthState = {
 };
 
 async function loadProfile(userId: string) {
-  const { data: rows } = await supabase.from("profiles").select("id,name,household_id");
-  const all: Profile[] = (rows ?? []).map((r) => ({ id: r.id as string, name: r.name as string, householdId: (r.household_id as string | null) ?? null }));
+  const { data: rows } = await supabase.from("profiles").select("id,name,household_id,transfer_names");
+  const all: Profile[] = (rows ?? []).map((r) => ({ id: r.id as string, name: r.name as string, householdId: (r.household_id as string | null) ?? null, transferNames: (r.transfer_names as string[] | null) ?? [] }));
   const me = all.find((p) => p.id === userId) ?? null;
   let household: Household | null = null;
   if (me?.householdId) {
