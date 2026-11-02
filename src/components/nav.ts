@@ -12,6 +12,7 @@ import {
   ShoppingCart,
   Handshake,
   Gem,
+  Newspaper,
   ScanLine,
   Settings as SettingsIcon,
   Target,
@@ -49,6 +50,7 @@ export const sidebarGroups: Array<{ title: string; items: NavItem[] }> = [
   {
     title: "Análises",
     items: [
+      { to: "/resumo", label: "Resumo do mês", icon: Newspaper },
       { to: "/relatorios", label: "Relatórios", icon: BarChart3 },
       { to: "/conexoes", label: "Open Finance", icon: Link2 },
     ],
@@ -66,6 +68,7 @@ export const moreItems: NavItem[] = [
   { to: "/contas", label: "Contas", icon: Landmark },
   { to: "/metas", label: "Metas", icon: Target },
   { to: "/dividas", label: "Dívidas", icon: Wallet },
+  { to: "/resumo", label: "Resumo do mês", icon: Newspaper },
   { to: "/relatorios", label: "Relatórios", icon: BarChart3 },
   { to: "/conexoes", label: "Open Finance", icon: Link2 },
   { to: "/ajustes", label: "Ajustes", icon: SettingsIcon },

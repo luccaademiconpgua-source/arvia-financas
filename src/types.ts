@@ -83,8 +83,16 @@ export type Goal = {
   mode: Mode;
   name: string;
   targetCents: number;
-  /** o progresso é derivado das transações type reserva com goalId */
-  kind: "emergencia" | "geral";
+  /** o progresso é derivado das transações type reserva com goalId (ou do saldo de accountId) */
+  kind: "emergencia" | "geral" | "lance";
+  /** reserva de emergência: quantos meses de gastos essenciais */
+  monthsTarget?: number;
+  /** lance: carta de consórcio e percentual do crédito */
+  assetId?: string;
+  lancePct?: number;
+  /** conta onde o dinheiro fica guardado: o saldo dela é o progresso */
+  accountId?: string;
+  targetDate?: string;
 };
 
 export type Debt = {

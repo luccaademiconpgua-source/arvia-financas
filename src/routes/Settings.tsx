@@ -9,6 +9,8 @@ import { useRefresh } from "../store/refresh";
 import { useData } from "../store/data";
 import { detectTransfers } from "../store/actions";
 import type { Mode } from "../types";
+import { GeminiKeySheet } from "../components/kitchen/QuickAdd";
+import { geminiStatus, type GeminiStatus } from "../services/listInput";
 import { disablePush, enablePush, pushState, testPush, type PushState } from "../services/push";
 
 const TABLES = ["accounts", "cards", "card_invoices", "categories", "goals", "debts", "transactions", "nfce_scans", "vehicles", "vehicle_logs", "vehicle_reminders"] as const;
@@ -102,6 +104,7 @@ export function Settings() {
         <p className="mt-2 text-sm text-muted">O backup inclui tudo o que você enxerga: seus dados pessoais e os da casa.</p>
       </Card>
       <PushCard />
+      <GeminiCard />
       <TransferNamesCard />
       <CategoryRulesCard />
       <ResetCard />
@@ -160,6 +163,23 @@ function PushCard() {
         </div>
       )}
       {error && <p role="alert" className="mt-2 text-sm text-danger">{error}</p>}
+    </Card>
+  );
+}
+
+function GeminiCard() {
+  const [st, setSt] = useState<GeminiStatus | null>(null);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    void geminiStatus().then(setSt);
+  }, [open]);
+  return (
+    <Card title="Ler fotos de listas de compras">
+      <p className="text-sm text-muted">
+        {st?.mine ? `Chave do Gemini salva, terminando em ${st.hint}.` : st?.shared ? "Usando a chave do Gemini de outra pessoa da casa." : "Para ler fotos de listas escritas à mão, a Arvia usa o Gemini do Google, com uma chave gratuita."}
+      </p>
+      <SecondaryButton type="button" className="mt-3" onClick={() => setOpen(true)}>{st?.mine ? "Trocar ou apagar a chave" : "Configurar a chave"}</SecondaryButton>
+      {open && <GeminiKeySheet onClose={() => setOpen(false)} onSaved={() => setOpen(false)} />}
     </Card>
   );
 }

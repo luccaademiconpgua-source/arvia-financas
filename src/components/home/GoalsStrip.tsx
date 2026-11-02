@@ -2,11 +2,17 @@ import { Link } from "react-router";
 import { format, parseISO } from "date-fns";
 import { Card, Empty } from "../ui";
 import { formatBrl } from "../../lib/money";
-import { goalProgress, goalSavedCents } from "../../lib/calc";
+import { goalPlan } from "../../lib/goals";
+import { todayIso } from "../../lib/clock";
+import { useModeData } from "../../hooks/useModeData";
+import { useNetWorthData } from "../../services/networth";
 import type { Debt, Goal, Transaction } from "../../types";
 
 export function GoalsStrip({ goals, debts, transactions }: { goals: Goal[]; debts: Debt[]; transactions: Transaction[] }) {
+  const { mode, accounts, categories } = useModeData();
+  const nw = useNetWorthData(mode);
   const reserve = goals.find((g) => g.kind === "emergencia") ?? goals[0];
+  const plan = reserve ? goalPlan(reserve, { txs: transactions, accounts, categories, assets: nw.assets, today: todayIso() }) : null;
   const next = debts.filter((d) => d.paidInstallments < d.installmentCount).sort((a, b) => (a.nextDue < b.nextDue ? -1 : 1))[0];
   return (
     <div className="grid gap-4 md:grid-cols-2">
@@ -15,10 +21,10 @@ export function GoalsStrip({ goals, debts, transactions }: { goals: Goal[]; debt
           <>
             <p className="text-sm font-medium">{reserve.name}</p>
             <p className="num text-sm text-muted">
-              {formatBrl(goalSavedCents(reserve, transactions))} de {formatBrl(reserve.targetCents)}
+              {formatBrl(plan!.savedCents)} de {formatBrl(plan!.targetCents)}
             </p>
             <div className="mt-2 h-2 rounded-full bg-line">
-              <div className="h-2 rounded-full bg-brand" style={{ width: `${Math.round(goalProgress(reserve, transactions) * 100)}%` }} />
+              <div className="h-2 rounded-full bg-brand" style={{ width: `${plan!.pct}%` }} />
             </div>
             <Link to="/metas" className="mt-1 inline-flex min-h-11 items-center text-sm font-medium text-brand underline underline-offset-4">
               Ver metas

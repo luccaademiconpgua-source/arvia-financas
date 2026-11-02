@@ -10,7 +10,8 @@ import { ProjectionCard } from "../components/dashboard/ProjectionCard";
 import { BudgetCard } from "../components/dashboard/BudgetCard";
 import { Empty } from "../components/ui";
 import { useModeData } from "../hooks/useModeData";
-import { cashflow, goalSavedCents, healthScore, inMonth, summarize, totalBalanceCents, worstInvoiceStatus } from "../lib/calc";
+import { goalPlan } from "../lib/goals";
+import { cashflow, healthScore, inMonth, summarize, totalBalanceCents, worstInvoiceStatus } from "../lib/calc";
 import { todayIso } from "../lib/clock";
 
 export function Home() {
@@ -21,6 +22,7 @@ export function Home() {
   const thisYm = today.slice(0, 7);
   const month = summarize(transactions, "mes", today);
   const emergency = goals.find((g) => g.kind === "emergencia");
+  const emergencyPlan = emergency ? goalPlan(emergency, { txs: transactions, accounts, categories, assets: [], today }) : null;
   const parcelas = inMonth(transactions, thisYm).filter((t) => t.type === "despesa" && !t.isTransfer && categories.find((c) => c.id === t.categoryId)?.name === "Parcelas").reduce((s, t) => s + t.amountCents, 0);
   const limit = cards.reduce((s, c) => s + (c.limitCents ?? 0), 0);
   const used = cards.reduce((s, c) => s + c.invoices.filter((i) => i.status !== "paga").reduce((x, i) => x + i.amountCents, 0), 0);
@@ -28,8 +30,8 @@ export function Home() {
     receitasCents: month.receitasCents,
     sobrouCents: month.sobrouCents,
     hasOverdueInvoice: cards.some((c) => worstInvoiceStatus(c) === "vencida"),
-    emergencySavedCents: emergency ? goalSavedCents(emergency, transactions) : 0,
-    emergencyTargetCents: emergency?.targetCents ?? 0,
+    emergencySavedCents: emergencyPlan?.savedCents ?? 0,
+    emergencyTargetCents: emergencyPlan?.targetCents ?? 0,
     parcelasCents: parcelas,
     cardUsage: limit > 0 ? used / limit : null,
   });

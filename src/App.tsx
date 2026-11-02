@@ -18,6 +18,7 @@ import { Wallet as WalletPage } from "./routes/Wallet";
 import { Kitchen } from "./routes/Kitchen";
 import { Settle } from "./routes/Settle";
 import { NetWorth } from "./routes/NetWorth";
+import { MonthSummary } from "./routes/MonthSummary";
 import { Settings } from "./routes/Settings";
 import { NotFound } from "./routes/NotFound";
 import { Login } from "./routes/Login";
@@ -74,6 +75,7 @@ export function App() {
         <Route path="compras" element={<Kitchen />} />
         <Route path="acerto" element={<Settle />} />
         <Route path="patrimonio" element={<NetWorth />} />
+        <Route path="resumo" element={<MonthSummary />} />
         <Route path="ajustes" element={<Settings />} />
         <Route path="*" element={<NotFound />} />
       </Route>

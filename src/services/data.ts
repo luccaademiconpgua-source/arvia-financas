@@ -103,7 +103,14 @@ export async function fetchModeData(mode: Mode): Promise<ModeData> {
     cards: cards.map((r) => toCard(r, mode)),
     categories: categories.map((r) => ({ id: str(r["id"]), mode, name: str(r["name"]), kind: str(r["kind"]) as Category["kind"], essential: Boolean(r["essential"]) })),
     transactions: reconcileView(transactions, mode),
-    goals: goals.map((r) => ({ id: str(r["id"]), mode, name: str(r["name"]), targetCents: int(r["target_cents"]), kind: str(r["kind"]) as Goal["kind"] })),
+    goals: goals.map((r) => ({
+      id: str(r["id"]), mode, name: str(r["name"]), targetCents: int(r["target_cents"]), kind: str(r["kind"]) as Goal["kind"],
+      ...(r["months_target"] ? { monthsTarget: int(r["months_target"]) } : {}),
+      ...(r["asset_id"] ? { assetId: str(r["asset_id"]) } : {}),
+      ...(r["lance_pct"] ? { lancePct: Number(r["lance_pct"]) } : {}),
+      ...(r["account_id"] ? { accountId: str(r["account_id"]) } : {}),
+      ...(r["target_date"] ? { targetDate: str(r["target_date"]) } : {}),
+    })),
     debts: debts.map((r) => ({ id: str(r["id"]), mode, name: str(r["name"]), installmentCount: int(r["installment_count"]), paidInstallments: int(r["paid_installments"]), installmentCents: int(r["installment_cents"]), nextDue: str(r["next_due"]) })),
   };
 }

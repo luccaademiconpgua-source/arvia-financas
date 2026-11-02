@@ -8,10 +8,12 @@ import { TransactionDetailSheet } from "./TransactionDetailSheet";
 import { TransactionSheet } from "./TransactionSheet";
 import { useAuth } from "../store/auth";
 import { usePrefs } from "../store/prefs";
+import { useNetWorthSnapshot } from "../hooks/useNetWorthSnapshot";
 
 export function Shell() {
   const name = useAuth((s) => s.profile?.name ?? "");
   const hidden = usePrefs((s) => s.hidden);
+  useNetWorthSnapshot();
   return (
     <div className={`min-h-dvh bg-page text-ink lg:pl-[260px] ${hidden ? "hide-values" : ""}`}>
       <Sidebar />

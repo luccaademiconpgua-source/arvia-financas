@@ -5,6 +5,7 @@ import { Check, ChevronLeft, ChevronRight, Plus, Trash2, TrendingDown, TrendingU
 import { Card, Empty, Pill } from "../components/ui";
 import { Field, inputClass, PrimaryButton, SecondaryButton, Sheet } from "../components/Sheet";
 import { useModeData } from "../hooks/useModeData";
+import { QuickAdd } from "../components/kitchen/QuickAdd";
 import { todayIso } from "../lib/clock";
 import { formatBrl } from "../lib/money";
 import { budgetLines } from "../lib/budget";
@@ -112,6 +113,7 @@ function ListTab({ mode, k, mercadoRemaining }: { mode: Mode; k: KitchenData; me
           <input id="novo-item" className={`${inputClass} min-w-0 flex-1`} value={text} onChange={(e) => setText(e.target.value)} placeholder="Ex.: 2 kg arroz, leite, 6 ovos" autoComplete="off" />
           <PrimaryButton type="submit" aria-label="Adicionar"><Plus size={18} aria-hidden="true" /></PrimaryButton>
         </form>
+        <QuickAdd mode={mode} />
         <div className="mt-3 flex flex-wrap items-baseline justify-between gap-2 text-sm">
           <span>
             Estimativa: <strong className="num">{formatBrl(est.totalCents)}</strong>

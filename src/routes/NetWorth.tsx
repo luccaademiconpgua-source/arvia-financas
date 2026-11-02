@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -9,7 +9,7 @@ import { accountBalanceCents } from "../lib/calc";
 import { todayIso } from "../lib/clock";
 import { formatBrl, parseBrlToCents } from "../lib/money";
 import { consorcio, KIND_LABEL, netWorth, type Asset, type AssetKind } from "../lib/networth";
-import { deleteAsset, saveAsset, saveSnapshot, useNetWorthData } from "../services/networth";
+import { deleteAsset, saveAsset, useNetWorthData } from "../services/networth";
 import { useVehicles } from "../services/vehicles";
 import { useUI } from "../store/ui";
 import type { Mode } from "../types";
@@ -36,13 +36,7 @@ export function NetWorth() {
     [accounts, transactions, cards, debts, nw.assets],
   );
 
-  const saved = nw.snapshots.find((s) => s.month === month);
   const allReady = ready && nw.ready && veh.ready;
-  useEffect(() => {
-    if (!allReady) return;
-    if (saved && saved.assetsCents === result.assetsCents && saved.liabilitiesCents === result.liabilitiesCents) return;
-    void saveSnapshot(mode, month, result.assetsCents, result.liabilitiesCents);
-  }, [allReady, saved, result.assetsCents, result.liabilitiesCents, mode, month]);
 
   if (!allReady) return <Empty>{nw.error || "Carregando…"}</Empty>;
 
