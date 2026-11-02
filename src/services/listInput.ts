@@ -1,6 +1,3 @@
-import { supabase } from "../lib/supabase";
-import type { Ingredient } from "../lib/kitchen";
-
 // ---------- Voz (reconhecimento do próprio navegador, de graça) ----------
 type Rec = {
   lang: string;
@@ -42,48 +39,3 @@ export function listen(onText: (t: string) => void): { done: Promise<string>; st
   return { done, stop: () => r.stop() };
 }
 
-// ---------- Foto (lida pelo Gemini no servidor) ----------
-/** Reduz a foto para no máximo 1600 px e JPEG, para subir rápido e caber no limite. */
-async function shrink(file: File): Promise<{ data: string; mime: string }> {
-  const bmp = await createImageBitmap(file);
-  const scale = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bmp.width * scale);
-  canvas.height = Math.round(bmp.height * scale);
-  canvas.getContext("2d")!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
-  const url = canvas.toDataURL("image/jpeg", 0.85);
-  return { data: url.slice(url.indexOf(",") + 1), mime: "image/jpeg" };
-}
-
-export class NeedsKey extends Error {}
-
-export async function readListPhoto(file: File): Promise<Ingredient[]> {
-  const img = await shrink(file);
-  const { data, error } = await supabase.functions.invoke("list-photo", { body: { image: img.data, mime: img.mime } });
-  let msg = (data as { error?: string } | null)?.error;
-  if (error) {
-    try {
-      msg = ((await (error as { context?: Response }).context?.json()) as { error?: string })?.error ?? msg;
-    } catch {
-      /* corpo sem JSON */
-    }
-  }
-  if (msg === "sem_chave") throw new NeedsKey("Configure a chave do Gemini.");
-  if (msg === "chave_invalida") throw new NeedsKey("A chave do Gemini foi recusada pelo Google. Cole uma chave nova.");
-  if (msg || error) throw new Error(msg ?? "Não consegui ler a foto agora.");
-  return ((data as { items?: Ingredient[] }).items ?? []).map((i) => ({ name: i.name, qty: i.qty ?? null, unit: i.unit ?? null }));
-}
-
-export type GeminiStatus = { mine: boolean; hint: string | null; shared: boolean };
-export async function geminiStatus(): Promise<GeminiStatus> {
-  const { data } = await supabase.rpc("gemini_status");
-  return (data as GeminiStatus) ?? { mine: false, hint: null, shared: false };
-}
-export async function saveGeminiKey(key: string) {
-  const { error } = await supabase.rpc("save_gemini_key", { p_key: key.trim() });
-  if (error) throw new Error(error.message);
-}
-export async function deleteGeminiKey() {
-  const { error } = await supabase.rpc("delete_gemini_key");
-  if (error) throw new Error(error.message);
-}

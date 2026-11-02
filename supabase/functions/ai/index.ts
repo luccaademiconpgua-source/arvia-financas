@@ -1,0 +1,316 @@
+// Edge Function `ai`: o cérebro do assistente da Arvia.
+// Provedores: Groq (rápido, texto e áudio) e Gemini (texto, foto e áudio). Um assume quando o outro falha ou estoura a cota.
+// As chaves são de cada pessoa (ou de alguém da casa) e ficam no Vault; só esta função lê, com service_role.
+//
+// Ações:
+//   transcribe  {audio, mime}            -> {text}
+//   items       {text}                   -> {items:[{name,qty,unit}]}          (lista de compras ditada)
+//   photo_list  {image, mime}            -> {items:[...]}                      (foto de lista escrita à mão)
+//   chat        {messages:[{role,content}]} -> {reply, actions:[...]}         (assistente com os dados da pessoa)
+//   task        {text}                   -> {task:{title,date,time,priority}} (agenda por texto livre)
+import { createClient } from "npm:@supabase/supabase-js@2";
+
+const cors = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
+  "access-control-allow-methods": "POST, OPTIONS",
+};
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, "content-type": "application/json" } });
+
+type Keys = { groq: string | null; gemini: string | null };
+type Msg = { role: "user" | "assistant"; content: string };
+type Provider = "groq" | "gemini";
+
+const GROQ_CHAT = ["llama-3.3-70b-versatile", "openai/gpt-oss-120b"];
+const GROQ_STT = "whisper-large-v3-turbo";
+const GEMINI = ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-2.5-flash"];
+
+class AiError extends Error {
+  constructor(public code: string, message: string) {
+    super(message);
+  }
+}
+
+function todayBR() {
+  const now = new Date();
+  const d = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+  const wd = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", weekday: "long" }).format(now);
+  const hm = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" }).format(now);
+  return { date: d, weekday: wd, time: hm };
+}
+
+function parseJson(text: string): unknown {
+  const t = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
+  try {
+    return JSON.parse(t);
+  } catch {
+    const m = /\{[\s\S]*\}/.exec(t);
+    if (m) return JSON.parse(m[0]);
+    throw new Error("json");
+  }
+}
+
+async function groqChat(key: string, system: string, msgs: Msg[], wantJson: boolean): Promise<string> {
+  let last = "";
+  for (const model of GROQ_CHAT) {
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        model,
+        temperature: 0.3,
+        max_tokens: 1500,
+        messages: [{ role: "system", content: system }, ...msgs],
+        ...(wantJson ? { response_format: { type: "json_object" } } : {}),
+      }),
+      signal: AbortSignal.timeout(40000),
+    });
+    const body = await res.text();
+    if (res.ok) return JSON.parse(body)?.choices?.[0]?.message?.content ?? "";
+    if (res.status === 401) throw new AiError("chave_groq", "A chave do Groq foi recusada.");
+    last = `Groq ${res.status}`;
+    if (res.status !== 404 && res.status !== 400) break; // 429/5xx: deixa o Gemini tentar
+  }
+  throw new AiError("falhou", last);
+}
+
+async function geminiCall(key: string, system: string, parts: unknown[], history: Msg[], wantJson: boolean): Promise<string> {
+  let last = "";
+  const contents = [
+    ...history.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
+    ...(parts.length ? [{ role: "user", parts }] : []),
+  ];
+  for (const model of GEMINI) {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-goog-api-key": key },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: system }] },
+        contents,
+        generationConfig: { temperature: 0.3, maxOutputTokens: 1500, ...(wantJson ? { responseMimeType: "application/json" } : {}) },
+      }),
+      signal: AbortSignal.timeout(45000),
+    });
+    const body = await res.text();
+    if (res.ok) return JSON.parse(body)?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? "").join("") ?? "";
+    if ((res.status === 400 && /API key/i.test(body)) || res.status === 403) throw new AiError("chave_gemini", "A chave do Gemini foi recusada.");
+    last = `Gemini ${res.status}`;
+    if (res.status !== 404 && res.status !== 429) break;
+  }
+  throw new AiError("falhou", last);
+}
+
+/** Texto: Groq primeiro (mais rápido); se falhar ou estourar a cota, o Gemini responde. */
+async function llm(keys: Keys, system: string, msgs: Msg[], wantJson: boolean): Promise<{ text: string; provider: Provider }> {
+  const order: Provider[] = ["groq", "gemini"];
+  const errors: string[] = [];
+  for (const p of order) {
+    const k = keys[p];
+    if (!k) continue;
+    try {
+      const text = p === "groq" ? await groqChat(k, system, msgs, wantJson) : await geminiCall(k, system, [], msgs, wantJson);
+      return { text, provider: p };
+    } catch (e) {
+      errors.push(e instanceof Error ? e.message : String(e));
+    }
+  }
+  if (!keys.groq && !keys.gemini) throw new AiError("sem_chave", "Configure uma chave do Groq ou do Gemini.");
+  throw new AiError("falhou", errors.join("; ") || "Não consegui responder agora.");
+}
+
+function b64ToBytes(b64: string) {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+async function transcribe(keys: Keys, audio: string, mime: string): Promise<{ text: string; provider: Provider }> {
+  if (keys.groq) {
+    const ext = mime.includes("mp4") || mime.includes("m4a") ? "m4a" : mime.includes("ogg") ? "ogg" : mime.includes("wav") ? "wav" : "webm";
+    const fd = new FormData();
+    fd.append("file", new Blob([b64ToBytes(audio)], { type: mime }), `audio.${ext}`);
+    fd.append("model", GROQ_STT);
+    fd.append("language", "pt");
+    fd.append("response_format", "json");
+    const res = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", { method: "POST", headers: { authorization: `Bearer ${keys.groq}` }, body: fd, signal: AbortSignal.timeout(45000) });
+    if (res.ok) return { text: String((await res.json())?.text ?? "").trim(), provider: "groq" };
+    if (res.status === 401) throw new AiError("chave_groq", "A chave do Groq foi recusada.");
+  }
+  if (keys.gemini) {
+    const text = await geminiCall(keys.gemini, "Transcreva o áudio em português do Brasil, palavra por palavra, com pontuação. Responda só com a transcrição.", [{ inline_data: { mime_type: mime.split(";")[0], data: audio } }], [], false);
+    return { text: text.trim(), provider: "gemini" };
+  }
+  throw new AiError("sem_chave", "Configure uma chave do Groq ou do Gemini.");
+}
+
+const ITEMS_PROMPT = `Você recebe o que a pessoa falou ou escreveu para a lista de compras de supermercado (pt-BR), às vezes sem vírgulas, como "arroz feijão dois litros de leite pão de forma".
+Separe em itens. Mantenha nomes compostos juntos ("pão de forma", "papel higiênico", "leite condensado", "pão de queijo"). Converta números falados ("dois" -> 2).
+Unidades possíveis: kg, g, l, ml, un, cx, pct, dz, lata ou null. Corrija grafia óbvia. Não invente itens.
+Responda só JSON: {"items":[{"name":"arroz","qty":null,"unit":null}]}`;
+
+function cleanItems(raw: unknown) {
+  const list = (raw as { items?: unknown })?.items;
+  if (!Array.isArray(list)) return [];
+  return list.slice(0, 80).flatMap((x) => {
+    const i = x as { name?: unknown; qty?: unknown; unit?: unknown };
+    const name = String(i?.name ?? "").trim().slice(0, 80);
+    if (name.length < 2) return [];
+    const q = Number(i?.qty);
+    const u = i?.unit ? String(i.unit).toLowerCase().slice(0, 10) : null;
+    return [{ name, qty: Number.isFinite(q) && q > 0 && q < 10000 ? q : null, unit: u && u !== "null" ? u : null }];
+  });
+}
+
+function chatSystem(ctx: unknown) {
+  const t = todayBR();
+  return `Você é o assistente pessoal da Arvia, o app de finanças e organização da casa da pessoa. Fale em português do Brasil, com tom humano, direto e prático, como um mentor financeiro que conhece a vida da pessoa. Não use travessão. Não bajule.
+Hoje é ${t.weekday}, ${t.date}, ${t.time} (horário de Brasília).
+
+DADOS da pessoa (JSON, valores em reais). Use só estes dados para afirmar números; se algo não estiver aqui, diga que não tem essa informação no app. Nunca invente valores:
+${JSON.stringify(ctx)}
+
+O que você faz:
+1. Responde dúvidas sobre os gastos, saldos, orçamento, metas, contas fixas, dívidas e agenda, com números dos DADOS. Compare com meses anteriores quando ajudar.
+2. Dá resumos gerais quando pedirem: o que entrou e saiu, onde mais gastou, o que mudou, alertas e 1 a 3 sugestões práticas.
+3. Tira dúvidas gerais de finanças pessoais, consumo e organização, de forma educativa (não é recomendação de investimento personalizada).
+4. Organiza o dia e a semana com base na agenda: sugere ordem, horários livres e o que priorizar.
+5. Quando a pessoa contar um gasto ou recebimento ("gastei 45 no mercado no pix", "recebi 2 mil de comissão", "paguei a luz 180"), crie uma ação "transaction".
+   - amount em reais (número). type "despesa" ou "receita". category: o nome EXATO de uma categoria dos DADOS do mesmo tipo (escolha a mais adequada). payment: pix, dinheiro, debito ou credito.
+   - account: nome exato de uma conta dos DADOS se a pessoa citar ou se der para deduzir; card: nome exato do cartão se for no crédito. Se for no crédito parcelado, installments com o número de parcelas.
+   - scope: "casa" se for despesa da casa (mercado da casa, contas da casa, carro da família) e a pessoa tiver casa; senão "pessoal".
+   - date no formato AAAA-MM-DD (hoje se não disser; "ontem" = um dia antes).
+   - Se faltar o valor, NÃO crie a ação: pergunte o valor.
+6. Quando for algo a fazer, compromisso ou lembrete ("dentista quinta 15h", "pagar IPVA até sexta", "ligar pro cliente amanhã"), crie uma ação "task" com title, date (AAAA-MM-DD ou null), time (HH:MM ou null), priority (baixa, normal ou alta).
+7. Quando a pessoa pedir para pôr coisas na lista de compras, crie uma ação "shopping" com items [{name, qty, unit}].
+Pode haver várias ações numa mensagem. A pessoa confirma cada ação antes de salvar, então no reply diga o que você preparou ("Preparei a despesa de R$ 45,00 em Mercado, confirma?").
+
+Responda SEMPRE e SÓ com JSON neste formato:
+{"reply": "texto para a pessoa (pode usar **negrito** e listas com -)", "actions": [
+  {"kind":"transaction","type":"despesa","amount":45.0,"description":"Mercado","category":"Mercado","payment":"pix","account":null,"card":null,"installments":null,"scope":"pessoal","date":"${t.date}"},
+  {"kind":"task","title":"Dentista","date":"2026-11-05","time":"15:00","priority":"normal"},
+  {"kind":"shopping","items":[{"name":"leite","qty":2,"unit":"l"}]}
+]}
+Se não houver ação, use "actions": [].`;
+}
+
+function cleanActions(raw: unknown) {
+  const list = (raw as { actions?: unknown })?.actions;
+  if (!Array.isArray(list)) return [];
+  const iso = /^\d{4}-\d{2}-\d{2}$/;
+  return list.slice(0, 10).flatMap((a): Record<string, unknown>[] => {
+    const x = a as Record<string, unknown>;
+    if (x.kind === "transaction") {
+      const amount = Number(x.amount);
+      if (!(amount > 0 && amount < 10_000_000)) return [];
+      return [{
+        kind: "transaction",
+        type: x.type === "receita" ? "receita" : "despesa",
+        amount_cents: Math.round(amount * 100),
+        description: String(x.description ?? x.category ?? "Lançamento").slice(0, 80),
+        category: x.category ? String(x.category).slice(0, 60) : null,
+        payment: ["pix", "dinheiro", "debito", "credito"].includes(String(x.payment)) ? String(x.payment) : "pix",
+        account: x.account ? String(x.account).slice(0, 60) : null,
+        card: x.card ? String(x.card).slice(0, 60) : null,
+        installments: Number(x.installments) >= 2 && Number(x.installments) <= 48 ? Math.round(Number(x.installments)) : null,
+        scope: x.scope === "casa" ? "casa" : "pessoal",
+        date: iso.test(String(x.date)) ? String(x.date) : todayBR().date,
+      }];
+    }
+    if (x.kind === "task") {
+      const title = String(x.title ?? "").trim().slice(0, 120);
+      if (!title) return [];
+      return [{
+        kind: "task",
+        title,
+        date: iso.test(String(x.date)) ? String(x.date) : null,
+        time: /^\d{1,2}:\d{2}$/.test(String(x.time)) ? String(x.time).padStart(5, "0") : null,
+        priority: ["baixa", "normal", "alta"].includes(String(x.priority)) ? String(x.priority) : "normal",
+      }];
+    }
+    if (x.kind === "shopping") {
+      const items = cleanItems({ items: x.items });
+      return items.length ? [{ kind: "shopping", items }] : [];
+    }
+    return [];
+  });
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  if (req.method !== "POST") return json({ error: "Método não permitido." }, 405);
+  try {
+    const url = Deno.env.get("SUPABASE_URL")!;
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const userClient = createClient(url, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: authHeader } }, auth: { persistSession: false } });
+    const { data: u, error: uerr } = await userClient.auth.getUser();
+    if (uerr || !u.user) return json({ error: "Entre na sua conta." }, 401);
+    const uid = u.user.id;
+    const admin = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
+    const [g1, g2] = await Promise.all([admin.rpc("get_ai_key", { p_owner: uid, p_provider: "groq" }), admin.rpc("get_ai_key", { p_owner: uid, p_provider: "gemini" })]);
+    const keys: Keys = { groq: (g1.data as string | null) ?? null, gemini: (g2.data as string | null) ?? null };
+
+    let body: Record<string, unknown> = {};
+    try {
+      body = await req.json();
+    } catch {
+      return json({ error: "Pedido inválido." }, 400);
+    }
+    const action = String(body.action ?? "");
+
+    if (action === "transcribe") {
+      const audio = String(body.audio ?? "");
+      if (audio.length < 100 || audio.length > 14_000_000) return json({ error: "Áudio vazio ou longo demais (até uns 5 minutos)." }, 400);
+      const r = await transcribe(keys, audio, String(body.mime ?? "audio/webm"));
+      return json(r);
+    }
+
+    if (action === "items") {
+      const text = String(body.text ?? "").slice(0, 3000);
+      if (!text.trim()) return json({ items: [] });
+      const r = await llm(keys, ITEMS_PROMPT, [{ role: "user", content: text }], true);
+      return json({ items: cleanItems(parseJson(r.text)), provider: r.provider });
+    }
+
+    if (action === "photo_list") {
+      if (!keys.gemini) return json({ error: "sem_gemini" }, 400);
+      const image = String(body.image ?? "");
+      if (image.length < 100 || image.length > 7_000_000) return json({ error: "Foto inválida ou grande demais." }, 400);
+      const mime = ["image/jpeg", "image/png", "image/webp"].includes(String(body.mime)) ? String(body.mime) : "image/jpeg";
+      const text = await geminiCall(keys.gemini, ITEMS_PROMPT.replace("o que a pessoa falou ou escreveu", "a FOTO de uma lista escrita à mão ou impressa") + "\nIgnore itens riscados, datas e títulos.", [{ inline_data: { mime_type: mime, data: image } }], [], true);
+      return json({ items: cleanItems(parseJson(text)), provider: "gemini" });
+    }
+
+    if (action === "task") {
+      const text = String(body.text ?? "").slice(0, 500);
+      const t = todayBR();
+      const r = await llm(keys, `Hoje é ${t.weekday}, ${t.date}. Transforme o pedido em uma tarefa de agenda. Datas relativas ("amanhã", "quinta", "dia 10") viram AAAA-MM-DD no futuro mais próximo. Responda só JSON: {"title":"...","date":"AAAA-MM-DD ou null","time":"HH:MM ou null","priority":"baixa|normal|alta"}`, [{ role: "user", content: text }], true);
+      const [task] = cleanActions({ actions: [{ kind: "task", ...(parseJson(r.text) as object) }] });
+      return json({ task: task ?? null, provider: r.provider });
+    }
+
+    if (action === "chat") {
+      const msgs = (Array.isArray(body.messages) ? body.messages : [])
+        .slice(-12)
+        .map((m) => ({ role: (m as Msg).role === "assistant" ? "assistant" : "user", content: String((m as Msg).content ?? "").slice(0, 2500) }) as Msg)
+        .filter((m) => m.content.trim());
+      if (!msgs.length || msgs[msgs.length - 1]!.role !== "user") return json({ error: "Escreva uma mensagem." }, 400);
+      const { data: ctx, error: cerr } = await admin.rpc("assistant_context", { p_owner: uid });
+      if (cerr) return json({ error: "Não consegui ler seus dados agora." }, 500);
+      const r = await llm(keys, chatSystem(ctx), msgs, true);
+      let parsed: unknown;
+      try {
+        parsed = parseJson(r.text);
+      } catch {
+        return json({ reply: r.text.slice(0, 4000), actions: [], provider: r.provider });
+      }
+      const reply = String((parsed as { reply?: unknown })?.reply ?? "").slice(0, 6000) || "Pronto.";
+      return json({ reply, actions: cleanActions(parsed), provider: r.provider });
+    }
+
+    return json({ error: "Ação inválida." }, 400);
+  } catch (e) {
+    if (e instanceof AiError) return json({ error: e.code, message: e.message }, e.code === "falhou" ? 502 : 400);
+    return json({ error: "falhou", message: "Não consegui responder agora." }, 500);
+  }
+});

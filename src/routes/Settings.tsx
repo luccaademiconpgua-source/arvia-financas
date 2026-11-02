@@ -9,8 +9,8 @@ import { useRefresh } from "../store/refresh";
 import { useData } from "../store/data";
 import { detectTransfers } from "../store/actions";
 import type { Mode } from "../types";
-import { GeminiKeySheet } from "../components/kitchen/QuickAdd";
-import { geminiStatus, type GeminiStatus } from "../services/listInput";
+import { AiKeysSheet } from "../components/ai/AiKeysSheet";
+import { aiStatus, type AiStatus } from "../services/ai";
 import { disablePush, enablePush, pushState, testPush, type PushState } from "../services/push";
 
 const TABLES = ["accounts", "cards", "card_invoices", "categories", "goals", "debts", "transactions", "nfce_scans", "vehicles", "vehicle_logs", "vehicle_reminders"] as const;
@@ -168,18 +168,23 @@ function PushCard() {
 }
 
 function GeminiCard() {
-  const [st, setSt] = useState<GeminiStatus | null>(null);
+  const [st, setSt] = useState<AiStatus | null>(null);
   const [open, setOpen] = useState(false);
   useEffect(() => {
-    void geminiStatus().then(setSt);
+    void aiStatus().then(setSt);
   }, [open]);
+  const line = (n: string, k?: AiStatus["groq"]) => (k?.mine ? `${n}: chave salva, terminando em ${k.hint}` : k?.shared ? `${n}: usando a chave de outra pessoa da casa` : `${n}: sem chave`);
   return (
-    <Card title="Ler fotos de listas de compras">
-      <p className="text-sm text-muted">
-        {st?.mine ? `Chave do Gemini salva, terminando em ${st.hint}.` : st?.shared ? "Usando a chave do Gemini de outra pessoa da casa." : "Para ler fotos de listas escritas à mão, a Arvia usa o Gemini do Google, com uma chave gratuita."}
-      </p>
-      <SecondaryButton type="button" className="mt-3" onClick={() => setOpen(true)}>{st?.mine ? "Trocar ou apagar a chave" : "Configurar a chave"}</SecondaryButton>
-      {open && <GeminiKeySheet onClose={() => setOpen(false)} onSaved={() => setOpen(false)} />}
+    <Card title="Inteligência artificial">
+      <p className="text-sm text-muted">O assistente, o lançamento por áudio, o ditado da lista e a leitura de fotos usam o Groq e o Gemini, que são gratuitos. Cole aqui as chaves de cada um.</p>
+      {st && (
+        <ul className="mt-2 space-y-1 text-sm">
+          <li>{line("Groq", st.groq)}</li>
+          <li>{line("Gemini", st.gemini)}</li>
+        </ul>
+      )}
+      <PrimaryButton type="button" className="mt-3" onClick={() => setOpen(true)}>Colar ou trocar as chaves</PrimaryButton>
+      {open && <AiKeysSheet onClose={() => setOpen(false)} />}
     </Card>
   );
 }

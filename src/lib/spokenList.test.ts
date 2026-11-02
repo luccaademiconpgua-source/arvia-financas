@@ -16,4 +16,11 @@ describe("lista ditada", () => {
       { name: "ovos", qty: 3, unit: "dz" },
     ]);
   });
+  it("separa mesmo sem vírgula, como o celular costuma devolver", () => {
+    expect(parseSpoken("arroz feijão dois quilos de açúcar")).toEqual([
+      { name: "arroz", qty: null, unit: null },
+      { name: "feijão", qty: null, unit: null },
+      { name: "açúcar", qty: 2, unit: "kg" },
+    ]);
+  });
 });
