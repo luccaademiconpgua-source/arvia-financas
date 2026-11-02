@@ -61,3 +61,20 @@ export async function payInvoice(cardId: string, invoiceId: string, accountId: s
 export async function payDebtInstallment(debtId: string, accountId: string): Promise<void> {
   await rpc<null>("pay_debt_installment", { p_debt_id: debtId, p_account_id: accountId, p_date: todayIso() });
 }
+
+export type ImportRow = {
+  external_id: string;
+  type: "receita" | "despesa";
+  amount_cents: number;
+  date: string;
+  description: string;
+  category_id?: string | undefined;
+};
+
+export function importStatement(target: { accountId?: string; cardId?: string }, rows: ImportRow[]) {
+  return rpc<{ inserted: number; skipped: number }>("import_statement", {
+    p_account_id: target.accountId ?? null,
+    p_card_id: target.cardId ?? null,
+    p_rows: rows,
+  });
+}

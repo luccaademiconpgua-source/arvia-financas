@@ -60,7 +60,7 @@ export type Transaction = {
   essential?: boolean;
   /** false: histórico do seed e despesa no cartão. true: mexe no saldo da conta */
   affectsBalance: boolean;
-  source: "manual" | "nfce" | "open_finance" | "fatura";
+  source: "manual" | "nfce" | "open_finance" | "fatura" | "extrato";
   nfceId?: string;
   /** fatura afetada: compra no crédito soma nela, pagamento de fatura a quita */
   invoiceId?: string;

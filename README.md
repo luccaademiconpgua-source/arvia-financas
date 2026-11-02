@@ -45,7 +45,13 @@ Supabase Vault e só a Edge Function `supabase/functions/pluggy` o lê.
 Para publicar a função em outro projeto: `supabase functions deploy pluggy --no-verify-jwt` (ela valida o login por conta própria).
 A gravação dos dados está em `apply_pluggy_sync` (migração `20261102000002`).
 
-Não foi testado contra a API real da Pluggy, só a gravação com dados de exemplo. Importação de extrato OFX e CSV ainda não existe.
+Não foi testado contra a API real da Pluggy, só a gravação com dados de exemplo.
+
+## Importar extrato (OFX ou CSV)
+
+Na tela Conexões. Funciona com qualquer banco, sem Open Finance. A leitura acontece no navegador (`src/lib/statement.ts`)
+e a gravação em `import_statement`. Reimportar o mesmo arquivo não duplica. Os lançamentos entram como histórico
+(não mudam o saldo); no OFX dá para acertar o saldo da conta pelo saldo do extrato.
 
 ## Atenção
 

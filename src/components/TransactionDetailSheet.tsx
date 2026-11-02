@@ -8,7 +8,7 @@ import { useUI } from "../store/ui";
 
 const typeLabel = { receita: "Receita", despesa: "Despesa", reserva: "Reserva", ajuste: "Ajuste de saldo" } as const;
 const payLabel = { pix: "Pix", dinheiro: "Dinheiro", debito: "Débito", credito: "Crédito" } as const;
-const sourceLabel = { manual: "Lançamento manual", nfce: "Nota fiscal (NFC-e)", open_finance: "Open Finance", fatura: "Pagamento de fatura" } as const;
+const sourceLabel = { manual: "Lançamento manual", nfce: "Nota fiscal (NFC-e)", open_finance: "Open Finance", fatura: "Pagamento de fatura", extrato: "Extrato importado" } as const;
 
 export function TransactionDetailSheet() {
   const id = useUI((s) => s.detailId);

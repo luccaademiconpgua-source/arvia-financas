@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Card, Pill } from "../components/ui";
 import { Field, inputClass, PrimaryButton, SecondaryButton } from "../components/Sheet";
 import { useUI } from "../store/ui";
+import { ImportStatement } from "../components/ImportStatement";
 import { disconnect, getStatus, listItems, openWidget, removeCredentials, saveCredentials, saveItem, syncAll, type PluggyItem } from "../services/pluggy";
 
 function ago(iso: string | null) {
@@ -101,13 +102,14 @@ export function Connections() {
       showToast("Credenciais removidas");
     });
 
-  if (loading) return <p className="text-sm text-muted">Carregando…</p>;
-
   return (
     <div className="flex flex-col gap-4">
+      <ImportStatement />
+
+      {loading && <p className="text-sm text-muted">Carregando conexões…</p>}
       {error && <p role="alert" className="rounded-lg border border-line bg-card p-3 text-sm text-danger">{error}</p>}
 
-      {configured ? (
+      {loading ? null : configured ? (
         <Card title="Bancos conectados">
           {items.length === 0 ? (
             <p className="text-sm text-muted">Nenhum banco conectado ainda.</p>
