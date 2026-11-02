@@ -6,13 +6,14 @@ import { RecentCard } from "../components/home/RecentCard";
 import { DashboardHero } from "../components/dashboard/DashboardHero";
 import { PaceCard } from "../components/dashboard/PaceCard";
 import { CategoryCard } from "../components/dashboard/CategoryCard";
+import { ProjectionCard } from "../components/dashboard/ProjectionCard";
 import { Empty } from "../components/ui";
 import { useModeData } from "../hooks/useModeData";
 import { cashflow, goalSavedCents, healthScore, inMonth, summarize, totalBalanceCents, worstInvoiceStatus } from "../lib/calc";
 import { todayIso } from "../lib/clock";
 
 export function Home() {
-  const { ready, accounts, cards, categories, transactions, goals, debts } = useModeData();
+  const { ready, mode, accounts, cards, categories, transactions, goals, debts } = useModeData();
   const today = todayIso();
   const [ym, setYm] = useState(today.slice(0, 7));
   if (!ready) return <Empty>Carregando…</Empty>;
@@ -45,8 +46,9 @@ export function Home() {
       </div>
       <div className="lg:col-span-7"><PaceCard transactions={transactions} ym={ym} today={today} /></div>
       <div className="lg:col-span-5"><CategoryCard transactions={transactions} categories={categories} ym={ym} /></div>
-      <div className="lg:col-span-4"><HealthCard health={health} /></div>
-      <div className="lg:col-span-8"><CardOverview cards={cards} transactions={transactions} today={today} /></div>
+      <div className="lg:col-span-5"><ProjectionCard mode={mode} balanceCents={totalBalanceCents(accounts, transactions)} transactions={transactions} cards={cards} today={today} /></div>
+      <div className="lg:col-span-3"><HealthCard health={health} /></div>
+      <div className="lg:col-span-4"><CardOverview cards={cards} transactions={transactions} today={today} /></div>
       <div className="lg:col-span-12"><RecentCard transactions={transactions} lookups={lookups} /></div>
       <div className="lg:col-span-12"><GoalsStrip goals={goals} debts={debts} transactions={transactions} /></div>
     </div>

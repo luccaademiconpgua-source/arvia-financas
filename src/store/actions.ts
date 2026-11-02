@@ -66,6 +66,7 @@ export async function afterDataChange(): Promise<void> {
     await supabase.rpc("detect_transfers");
     await supabase.rpc("auto_categorize");
     await supabase.rpc("reconcile");
+    await supabase.rpc("match_recurrences");
   } finally {
     useRefresh.getState().bump();
   }

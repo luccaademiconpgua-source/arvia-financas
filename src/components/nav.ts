@@ -6,6 +6,7 @@ import {
   Link2,
   BarChart3,
   Car,
+  CalendarClock,
   ScanLine,
   Settings as SettingsIcon,
   Target,
@@ -30,6 +31,7 @@ export const sidebarGroups: Array<{ title: string; items: NavItem[] }> = [
   {
     title: "Planejamento",
     items: [
+      { to: "/contas-fixas", label: "Contas fixas", icon: CalendarClock },
       { to: "/metas", label: "Metas", icon: Target },
       { to: "/dividas", label: "Dívidas", icon: Wallet },
     ],
@@ -44,6 +46,7 @@ export const sidebarGroups: Array<{ title: string; items: NavItem[] }> = [
 ];
 
 export const moreItems: NavItem[] = [
+  { to: "/contas-fixas", label: "Contas fixas", icon: CalendarClock },
   { to: "/veiculos", label: "Veículos", icon: Car },
   { to: "/contas", label: "Contas", icon: Landmark },
   { to: "/metas", label: "Metas", icon: Target },
