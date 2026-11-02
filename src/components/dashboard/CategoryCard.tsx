@@ -80,7 +80,7 @@ export function CategoryCard({ transactions, categories, ym }: { transactions: T
                   {tops.map((t) => (
                     <li key={t.id}>
                       <button type="button" onClick={() => openDetail(t.id)} className="flex min-h-10 w-full items-center justify-between gap-3 rounded-lg px-2 text-left text-sm hover:bg-page">
-                        <span className="min-w-0 truncate">{t.description}</span>
+                        <span className="min-w-0 truncate">{t.merchant || t.description}</span>
                         <span className="num shrink-0">{formatBrl(t.amountCents)}</span>
                       </button>
                     </li>

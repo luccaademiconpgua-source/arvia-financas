@@ -47,7 +47,7 @@ export function Transactions() {
         } else if (type && (t.type !== type || t.isTransfer)) return false;
         if (cat && t.categoryId !== cat) return false;
         if (pay && t.payment !== pay) return false;
-        if (nq && !norm(t.description).includes(nq)) return false;
+        if (nq && !norm(`${t.description} ${t.merchant ?? ""}`).includes(nq)) return false;
         return true;
       }),
     );

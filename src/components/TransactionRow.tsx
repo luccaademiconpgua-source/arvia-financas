@@ -6,6 +6,9 @@ import type { Account, Card, Category, Transaction } from "../types";
 
 type Lookups = { categories: Category[]; accounts: Account[]; cards: Card[] };
 
+/** Nome para mostrar: o estabelecimento quando o banco informa, senão a descrição. */
+export const txName = (t: Transaction) => t.merchant || t.description;
+
 export function txSubtitle(t: Transaction, l: Lookups): string {
   const cat = l.categories.find((c) => c.id === t.categoryId)?.name;
   const acc = l.accounts.find((a) => a.id === t.accountId)?.name;
@@ -27,7 +30,7 @@ export function TransactionRow({ t, lookups }: { t: Transaction; lookups: Lookup
           <Icon size={16} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium">{t.description}</span>
+          <span className="block truncate text-sm font-medium">{txName(t)}</span>
           <span className="flex min-w-0 items-center gap-1 text-xs text-muted">
             {t.bankMatch && <BadgeCheck size={14} aria-label="Conferido no banco" className="shrink-0 text-income" />}
             <span className="truncate">{txSubtitle(t, lookups)}</span>

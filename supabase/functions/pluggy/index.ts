@@ -204,6 +204,8 @@ async function syncOne(admin: any, apiKey: string, uid: string, itemId: string) 
           amount: t.amount,
           date: t.date,
           type: t.type,
+          category: t.category ?? null,
+          merchant: t.merchant?.name ?? t.merchant?.businessName ?? null,
         })),
       })),
     );

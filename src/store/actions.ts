@@ -64,6 +64,7 @@ export async function unlinkMatch(id: string): Promise<void> {
 export async function afterDataChange(): Promise<void> {
   try {
     await supabase.rpc("detect_transfers");
+    await supabase.rpc("auto_categorize");
     await supabase.rpc("reconcile");
   } finally {
     useRefresh.getState().bump();

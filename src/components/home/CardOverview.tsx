@@ -62,7 +62,7 @@ export function CardOverview({ cards, transactions, today }: { cards: CardT[]; t
         <ul className="mt-3 divide-y divide-line text-sm">
           {recent.map((t) => (
             <li key={t.id} className="flex justify-between gap-2 py-2">
-              <span className="truncate">{t.description}</span>
+              <span className="truncate">{t.merchant || t.description}</span>
               <span className="num shrink-0 text-muted">
                 {format(parseISO(t.date), "dd/MM")} · {formatBrl(t.amountCents)}
               </span>

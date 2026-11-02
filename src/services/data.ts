@@ -50,6 +50,7 @@ const toTx = (r: Row, mode: Mode): Transaction => ({
   affectsBalance: Boolean(r["affects_balance"]),
   source: str(r["source"]) as Transaction["source"],
   ...(r["is_transfer"] ? { isTransfer: true } : {}),
+  ...(r["merchant"] ? { merchant: String(r["merchant"]) } : {}),
   ...(opt(r["category_id"]) ? { categoryId: opt(r["category_id"]) as string } : {}),
   ...(opt(r["account_id"]) ? { accountId: opt(r["account_id"]) as string } : {}),
   ...(opt(r["card_id"]) ? { cardId: opt(r["card_id"]) as string } : {}),

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "../components/ui";
 import { Field, inputClass, PrimaryButton, SecondaryButton } from "../components/Sheet";
 import { supabase } from "../lib/supabase";
@@ -101,6 +101,7 @@ export function Settings() {
         <p className="mt-2 text-sm text-muted">O backup inclui tudo o que você enxerga: seus dados pessoais e os da casa.</p>
       </Card>
       <TransferNamesCard />
+      <CategoryRulesCard />
       <ResetCard />
       <Card title="Sessão">
         <SecondaryButton type="button" onClick={() => void signOut()}>Sair da conta</SecondaryButton>
@@ -233,6 +234,64 @@ function TransferNamesCard() {
         {busy ? "Procurando…" : "Procurar transferências agora"}
       </PrimaryButton>
       {msg && <p className="mt-2 text-sm" role="status">{msg}</p>}
+    </Card>
+  );
+}
+
+function CategoryRulesCard() {
+  const showToast = useUI((s) => s.showToast);
+  const version = useRefresh((s) => s.version);
+  const [rules, setRules] = useState<Array<{ id: string; pattern: string; type: string; categories: { name: string } | null }>>([]);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    void supabase
+      .from("category_rules")
+      .select("id, pattern, type, categories(name)")
+      .order("created_at", { ascending: false })
+      .then(({ data }) => setRules((data ?? []) as unknown as typeof rules));
+  }, [version]);
+
+  async function runNow() {
+    setBusy(true);
+    const { data, error } = await supabase.rpc("auto_categorize");
+    setBusy(false);
+    if (error) return showToast(error.message);
+    useRefresh.getState().bump();
+    showToast(Number(data) > 0 ? `${data} lançamentos categorizados` : "Nada novo para categorizar");
+  }
+
+  return (
+    <Card title="Categorias automáticas">
+      <p className="text-sm text-muted">
+        Lançamentos do banco e de extratos entram já com categoria: pelo que você ensinou, por palavras como mercado, posto e farmácia, ou pela categoria que o banco informa. Para ensinar, abra um lançamento, escolha a categoria e marque "aplicar a todos e lembrar para os próximos".
+      </p>
+      {rules.length > 0 && (
+        <>
+          <p className="mt-3 text-sm font-medium">O que a Arvia aprendeu</p>
+          <ul className="mt-1 divide-y divide-line text-sm">
+            {rules.map((r) => (
+              <li key={r.id} className="flex items-center justify-between gap-3 py-2">
+                <span className="min-w-0 truncate uppercase">{r.pattern}</span>
+                <span className="flex shrink-0 items-center gap-2">
+                  <span className="text-muted">{r.categories?.name ?? "-"}</span>
+                  <button
+                    type="button"
+                    aria-label={`Esquecer regra ${r.pattern}`}
+                    className="flex size-9 items-center justify-center rounded-lg text-muted hover:text-danger"
+                    onClick={() => void supabase.from("category_rules").delete().eq("id", r.id).then(() => useRefresh.getState().bump())}
+                  >
+                    ×
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      <SecondaryButton type="button" className="mt-3" disabled={busy} onClick={() => void runNow()}>
+        {busy ? "Categorizando…" : "Categorizar agora os lançamentos sem categoria"}
+      </SecondaryButton>
     </Card>
   );
 }

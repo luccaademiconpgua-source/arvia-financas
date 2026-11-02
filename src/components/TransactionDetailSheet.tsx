@@ -43,6 +43,7 @@ export function TransactionDetailSheet() {
   }
   const { t } = data;
   const rows: Array<[string, string]> = [
+    ...(t.merchant ? ([["No extrato", t.description]] as Array<[string, string]>) : []),
     ["Tipo", typeLabel[t.type]],
     ["Valor", formatBrl(t.amountCents)],
     ["Data", format(parseISO(t.date), "dd/MM/yyyy")],
@@ -57,7 +58,7 @@ export function TransactionDetailSheet() {
   const canTransfer = (t.type === "receita" || t.type === "despesa") && t.source !== "fatura";
 
   return (
-    <Sheet title={t.description} onClose={done}>
+    <Sheet title={t.merchant || t.description} onClose={done}>
       <dl className="divide-y divide-line">
         {rows.map(([k, v]) => (
           <div key={k} className="flex justify-between gap-4 py-2 text-sm">
@@ -153,7 +154,7 @@ function Classify({ t }: { t: Transaction }) {
         )}
         <label className="flex items-start gap-2">
           <input type="checkbox" className="mt-1 size-4" checked={same} onChange={(e) => setSame(e.target.checked)} />
-          <span>Aplicar também aos outros lançamentos "{t.description}"</span>
+          <span>Aplicar a todos de "{t.merchant || t.description}" e lembrar para os próximos</span>
         </label>
       </div>
       {error && <p role="alert" className="mt-2 text-sm text-danger">{error}</p>}

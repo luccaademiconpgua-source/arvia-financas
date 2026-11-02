@@ -63,6 +63,8 @@ export type Transaction = {
   source: "manual" | "nfce" | "open_finance" | "fatura" | "extrato";
   /** movimentação entre contas próprias: não conta como receita nem despesa */
   isTransfer?: boolean;
+  /** nome do estabelecimento informado pelo banco (quando a descrição é genérica, como "DÉBITO DE CARTÃO") */
+  merchant?: string;
   /** lançamento do banco que confirma este (conciliação); o do banco não aparece na lista nem nos totais */
   bankMatch?: { id: string; description: string; date: string; source: "open_finance" | "extrato"; accountId?: string; cardId?: string };
   nfceId?: string;
