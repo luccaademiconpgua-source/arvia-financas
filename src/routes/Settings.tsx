@@ -9,6 +9,7 @@ import { useRefresh } from "../store/refresh";
 import { useData } from "../store/data";
 import { detectTransfers } from "../store/actions";
 import type { Mode } from "../types";
+import { disablePush, enablePush, pushState, testPush, type PushState } from "../services/push";
 
 const TABLES = ["accounts", "cards", "card_invoices", "categories", "goals", "debts", "transactions", "nfce_scans", "vehicles", "vehicle_logs", "vehicle_reminders"] as const;
 
@@ -100,6 +101,7 @@ export function Settings() {
         <SecondaryButton type="button" onClick={() => void exportJson()}>Exportar arvia-backup.json</SecondaryButton>
         <p className="mt-2 text-sm text-muted">O backup inclui tudo o que você enxerga: seus dados pessoais e os da casa.</p>
       </Card>
+      <PushCard />
       <TransferNamesCard />
       <CategoryRulesCard />
       <ResetCard />
@@ -112,6 +114,53 @@ export function Settings() {
         </p>
       </Card>
     </div>
+  );
+}
+
+function PushCard() {
+  const showToast = useUI((s) => s.showToast);
+  const [state, setState] = useState<PushState | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    void pushState().then(setState);
+  }, []);
+  async function run(fn: () => Promise<unknown>, ok: string) {
+    setBusy(true);
+    setError("");
+    try {
+      await fn();
+      showToast(ok);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Não deu certo agora.");
+    }
+    setState(await pushState());
+    setBusy(false);
+  }
+  return (
+    <Card title="Notificações no celular">
+      <p className="text-sm text-muted">
+        Todo dia de manhã a Arvia avisa o que precisa de atenção: conta fixa ou fatura vencendo, orçamento passando de 80%, itens que acabaram na despensa e revisão do carro chegando. Cada aviso chega uma vez só.
+      </p>
+      {state === null && <p className="mt-3 text-sm text-muted">Verificando…</p>}
+      {state === "precisa-instalar" && (
+        <p className="mt-3 rounded-lg bg-page p-3 text-sm">
+          No iPhone, as notificações só funcionam com a Arvia instalada: no Safari, toque em Compartilhar e depois em <strong>Adicionar à Tela de Início</strong>. Abra a Arvia pelo ícone e volte aqui.
+        </p>
+      )}
+      {state === "indisponivel" && <p className="mt-3 text-sm text-muted">Este navegador não aceita notificações. No Android, use o Chrome; no iPhone, instale a Arvia na tela de início.</p>}
+      {state === "bloqueado" && <p className="mt-3 text-sm text-danger">As notificações estão bloqueadas para este site. Libere nas configurações do navegador (Permissões do site, Notificações) e volte aqui.</p>}
+      {state === "desligado" && (
+        <PrimaryButton type="button" className="mt-3" disabled={busy} onClick={() => void run(enablePush, "Notificações ligadas neste aparelho")}>Ligar notificações neste aparelho</PrimaryButton>
+      )}
+      {state === "ligado" && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          <PrimaryButton type="button" disabled={busy} onClick={() => void run(async () => { const n = await testPush(); if (n === 0) throw new Error("O teste não chegou. Desligue e ligue de novo."); }, "Notificação de teste enviada")}>Mandar notificação de teste</PrimaryButton>
+          <SecondaryButton type="button" disabled={busy} onClick={() => void run(disablePush, "Notificações desligadas neste aparelho")}>Desligar neste aparelho</SecondaryButton>
+        </div>
+      )}
+      {error && <p role="alert" className="mt-2 text-sm text-danger">{error}</p>}
+    </Card>
   );
 }
 
