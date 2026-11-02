@@ -38,7 +38,7 @@ export const sidebarGroups: Array<{ title: string; items: NavItem[] }> = [
     title: "Análises",
     items: [
       { to: "/relatorios", label: "Relatórios", icon: BarChart3 },
-      { to: "/conexoes", label: "Conexões", icon: Link2 },
+      { to: "/conexoes", label: "Open Finance", icon: Link2 },
     ],
   },
 ];
@@ -49,6 +49,6 @@ export const moreItems: NavItem[] = [
   { to: "/metas", label: "Metas", icon: Target },
   { to: "/dividas", label: "Dívidas", icon: Wallet },
   { to: "/relatorios", label: "Relatórios", icon: BarChart3 },
-  { to: "/conexoes", label: "Conexões", icon: Link2 },
+  { to: "/conexoes", label: "Open Finance", icon: Link2 },
   { to: "/ajustes", label: "Ajustes", icon: SettingsIcon },
 ];

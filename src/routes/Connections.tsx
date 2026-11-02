@@ -104,13 +104,11 @@ export function Connections() {
 
   return (
     <div className="flex flex-col gap-4">
-      <ImportStatement />
-
       {loading && <p className="text-sm text-muted">Carregando conexões…</p>}
       {error && <p role="alert" className="rounded-lg border border-line bg-card p-3 text-sm text-danger">{error}</p>}
 
       {loading ? null : configured ? (
-        <Card title="Bancos conectados">
+        <Card title="Open Finance: bancos conectados pelo Meu Pluggy">
           {items.length === 0 ? (
             <p className="text-sm text-muted">Nenhum banco conectado ainda.</p>
           ) : (
@@ -152,7 +150,7 @@ export function Connections() {
           </button>
         </Card>
       ) : (
-        <Card title="Passo 1: crie suas credenciais gratuitas">
+        <Card title="Open Finance: conectar seus bancos pelo Meu Pluggy">
           <ol className="list-decimal space-y-1 pl-5 text-sm">
             <li>Crie uma conta em <a className="underline" href="https://meu.pluggy.ai" target="_blank" rel="noreferrer">meu.pluggy.ai</a> e conecte seus bancos por lá.</li>
             <li>Entre em <a className="underline" href="https://dashboard.pluggy.ai" target="_blank" rel="noreferrer">dashboard.pluggy.ai</a> com a mesma conta e crie uma aplicação.</li>
@@ -171,7 +169,9 @@ export function Connections() {
         </Card>
       )}
 
-      <Card title="Como funciona">
+      <ImportStatement />
+
+      <Card title="Como funciona o Open Finance">
         <p className="text-sm text-muted">
           O Open Finance é o sistema do Banco Central para você autorizar a leitura de saldos e extratos. A Arvia não pede a senha do banco: a leitura passa pelo Meu Pluggy, e cada pessoa usa as próprias credenciais. As contas importadas ficam no escopo Pessoal; lançamentos de casa você marca como Casa dentro da Arvia.
         </p>
