@@ -38,8 +38,14 @@ As migrações estão em `supabase/migrations`. Para recriar o banco, aplique-as
 
 ## Open Finance
 
-Ainda não conectado. Plano: Meu Pluggy (gratuito, só uso pessoal, até 5 conexões, só contas do próprio titular),
-com cada pessoa usando as próprias credenciais, mais importação de extrato OFX e CSV.
+Integração com o Meu Pluggy (gratuito, só uso pessoal, até 5 conexões, só contas do próprio titular).
+Cada pessoa cria o próprio Client ID e Client Secret (passo a passo na tela Conexões). O segredo vai para o
+Supabase Vault e só a Edge Function `supabase/functions/pluggy` o lê.
+
+Para publicar a função em outro projeto: `supabase functions deploy pluggy --no-verify-jwt` (ela valida o login por conta própria).
+A gravação dos dados está em `apply_pluggy_sync` (migração `20261102000002`).
+
+Não foi testado contra a API real da Pluggy, só a gravação com dados de exemplo. Importação de extrato OFX e CSV ainda não existe.
 
 ## Atenção
 
