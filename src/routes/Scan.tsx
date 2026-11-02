@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import { BrowserQRCodeReader, type IScannerControls } from "@zxing/browser";
 import { format, parseISO } from "date-fns";
 import { Card } from "../components/ui";
 import { Field, inputClass, PrimaryButton, SecondaryButton } from "../components/Sheet";
@@ -8,6 +7,7 @@ import { useModeData } from "../hooks/useModeData";
 import { todayIso } from "../lib/clock";
 import { formatBrl } from "../lib/money";
 import { isAccessKeyOnly, isNfceUrl } from "../lib/nfceUrl";
+import { scanImageFile, startCameraScan, type ScanSession } from "../lib/qrScan";
 import { suggestCategoryName } from "../lib/suggestCategory";
 import { fetchNfce, NfceError, type NfceResult } from "../services/nfce";
 import { addTransaction } from "../store/actions";
@@ -98,64 +98,97 @@ function ManualButton() {
 
 function CameraTab({ onUrl, onError }: { active: boolean; onUrl: (u: string) => void; onError: (m: string) => void }) {
   const video = useRef<HTMLVideoElement>(null);
-  const controls = useRef<IScannerControls | null>(null);
+  const session = useRef<ScanSession | null>(null);
+  const cb = useRef({ onUrl, onError });
+  cb.current = { onUrl, onError };
   const [on, setOn] = useState(false);
+  const [torch, setTorch] = useState<null | boolean>(null);
+  const [slow, setSlow] = useState(false);
 
   useEffect(() => {
     if (!on || !video.current) return;
     let cancelled = false;
-    const reader = new BrowserQRCodeReader();
-    reader
-      .decodeFromConstraints({ video: { facingMode: "environment" } }, video.current, (res, _err, ctl) => {
-        if (res && !cancelled) {
-          ctl.stop();
-          setOn(false);
-          onUrl(res.getText());
-        }
-      })
-      .then((c) => {
-        if (cancelled) c.stop();
-        else controls.current = c;
+    setSlow(false);
+    const tip = setTimeout(() => setSlow(true), 8000);
+    startCameraScan(video.current, (text) => {
+      setOn(false);
+      cb.current.onUrl(text);
+    })
+      .then((s) => {
+        if (cancelled) return s.stop();
+        session.current = s;
+        setTorch(s.torch ? false : null);
       })
       .catch(() => {
         setOn(false);
-        onError("Não consegui acessar a câmera. Use a aba Foto ou Colar URL.");
+        cb.current.onError("Não consegui acessar a câmera. Confira a permissão do navegador ou use a aba Foto.");
       });
     return () => {
       cancelled = true;
-      controls.current?.stop();
-      controls.current = null;
+      clearTimeout(tip);
+      session.current?.stop();
+      session.current = null;
+      setTorch(null);
     };
-  }, [on, onUrl, onError]);
+  }, [on]);
 
   return (
     <div className="flex flex-col gap-3">
-      <video ref={video} muted playsInline className={`aspect-square w-full max-w-sm rounded-xl bg-ink ${on ? "" : "hidden"}`} aria-label="Imagem da câmera" />
+      <div className={`relative w-full max-w-sm ${on ? "" : "hidden"}`}>
+        <video ref={video} muted playsInline className="aspect-square w-full rounded-xl bg-ink object-cover" aria-label="Imagem da câmera" />
+        <div aria-hidden="true" className="pointer-events-none absolute inset-[18%] rounded-lg border-2 border-white/80 shadow-[0_0_0_9999px_rgba(0,0,0,0.25)]" />
+      </div>
       {!on && <PrimaryButton type="button" onClick={() => setOn(true)}>Abrir câmera</PrimaryButton>}
-      {on && <SecondaryButton type="button" onClick={() => setOn(false)}>Parar câmera</SecondaryButton>}
-      <p className="text-sm text-muted">Aponte para o QR Code da nota fiscal (NFC-e).</p>
+      {on && (
+        <div className="flex flex-wrap gap-2">
+          <SecondaryButton type="button" onClick={() => setOn(false)}>Parar câmera</SecondaryButton>
+          {torch !== null && (
+            <SecondaryButton
+              type="button"
+              aria-pressed={torch}
+              onClick={() => {
+                const next = !torch;
+                void session.current?.torch?.(next).then((ok) => ok && setTorch(next));
+              }}
+            >
+              {torch ? "Desligar lanterna" : "Ligar lanterna"}
+            </SecondaryButton>
+          )}
+        </div>
+      )}
+      <p className="text-sm text-muted">
+        Aponte para o QR Code da nota e aproxime até ele ocupar o quadrado. Segure firme por um ou dois segundos.
+      </p>
+      {on && slow && (
+        <p className="text-sm text-muted">
+          Demorando? Afaste um pouco o celular para focar, ligue a lanterna, ou use a aba Foto e tire uma foto bem de perto.
+        </p>
+      )}
     </div>
   );
 }
 
 function PhotoTab({ onUrl, onError }: { onUrl: (u: string) => void; onError: (m: string) => void }) {
+  const [busy, setBusy] = useState(false);
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    const src = URL.createObjectURL(file);
+    setBusy(true);
     try {
-      const res = await new BrowserQRCodeReader().decodeFromImageUrl(src);
-      onUrl(res.getText());
+      const text = await scanImageFile(file);
+      if (text) onUrl(text);
+      else onError("Não encontrei um QR Code nesta foto. Tire bem de perto, com o QR nítido e ocupando boa parte da imagem.");
     } catch {
-      onError("Não encontrei um QR Code nesta foto.");
+      onError("Não consegui abrir esta foto.");
     } finally {
-      URL.revokeObjectURL(src);
+      setBusy(false);
     }
   }
   return (
     <Field label="Foto do QR Code">
-      <input type="file" accept="image/*" capture="environment" onChange={(e) => void onFile(e)} className={inputClass} />
+      <input type="file" accept="image/*" capture="environment" disabled={busy} onChange={(e) => void onFile(e)} className={inputClass} />
+      {busy && <span className="text-sm text-muted">Procurando o QR Code…</span>}
     </Field>
   );
 }
