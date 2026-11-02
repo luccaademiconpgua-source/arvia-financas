@@ -76,3 +76,17 @@ describe("suggestCategoryName", () => {
     expect(suggestCategoryName("Loja X", "casa")).toBe("Outras");
   });
 });
+
+describe("parsePrHtml com a página real do Paraná", () => {
+  it("ignora 'EMISSÃO NORMAL' e lê a data de emissão certa, com entidades HTML", () => {
+    const html = `<div class="txtTopo">LOJA &amp; CIA</div><div>CNPJ: 10.609.274/0001-36</div>
+      <table id="tabResult"><tr id="Item + 1"><td><span class="txtTit">BAL&Atilde;O</span><span class="Rqtd"><strong>Qtde.:</strong>1</span><span class="RUN"><strong>UN: </strong>UN</span></td><td><span class="valor">28,90</span></td></tr></table>
+      <div>Valor a pagar R$:<span class="totalNumb">28,90</span></div><div>Dinheiro</div>
+      <h4>EMISSÃO NORMAL</h4><li><strong>Emiss&atilde;o: </strong>26&#x2F;10&#x2F;2026 17:02:36  - Via Consumidor</li>`;
+    const r = parsePrHtml(html)!;
+    expect(r.issuedAt).toBe("2026-10-26T17:02:36");
+    expect(r.storeName).toBe("LOJA & CIA");
+    expect(r.items[0]).toMatchObject({ description: "BALÃO", totalCents: 2890 });
+    expect(r.payment).toBe("dinheiro");
+  });
+});

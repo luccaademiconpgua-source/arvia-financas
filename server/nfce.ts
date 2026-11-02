@@ -14,12 +14,23 @@ export type ParsedNfce = {
   state?: string;
 };
 
-const clean = (s: string) =>
+const NAMED: Record<string, string> = {
+  nbsp: " ", amp: "&", quot: '"', apos: "'", lt: "<", gt: ">", ordm: "º", ordf: "ª", deg: "°",
+  aacute: "á", agrave: "à", acirc: "â", atilde: "ã", auml: "ä", eacute: "é", egrave: "è", ecirc: "ê",
+  iacute: "í", oacute: "ó", ocirc: "ô", otilde: "õ", uacute: "ú", uuml: "ü", ccedil: "ç", ntilde: "ñ",
+  Aacute: "Á", Agrave: "À", Acirc: "Â", Atilde: "Ã", Eacute: "É", Ecirc: "Ê", Iacute: "Í", Oacute: "Ó",
+  Ocirc: "Ô", Otilde: "Õ", Uacute: "Ú", Ccedil: "Ç", sol: "/", colon: ":", period: ".", comma: ",",
+};
+
+export const decodeEntities = (s: string) =>
   s
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&#(\d+);/g, (_, n: string) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, h: string) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, n: string) => String.fromCodePoint(Number(n)))
+    .replace(/&([a-z]+);/gi, (m, name: string) => NAMED[name] ?? m);
+
+const clean = (s: string) =>
+  decodeEntities(s.replace(/<[^>]*>/g, " "))
+    .replace(/[\u00a0\ufeff]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 
@@ -84,7 +95,7 @@ export function parsePrHtml(html: string, accessKey?: string): ParsedNfce | null
     ...(key ? { accessKey: key } : {}),
     storeName: clean(store ?? "Estabelecimento"),
     ...(findCnpj(text) ? { cnpj: findCnpj(text) } : {}),
-    issuedAt: toIsoDate(/Emiss[ãa]o:?\s*([\d/:\s]+)/i.exec(text)?.[1] ?? text),
+    issuedAt: toIsoDate(/Emiss[ãa]o:?\s*(\d{2}\/\d{2}\/\d{4}(?:\s+\d{2}:\d{2}(?::\d{2})?)?)/i.exec(text)?.[1] ?? text),
     totalCents,
     payment: detectPayment(text),
     items,
