@@ -7,6 +7,7 @@ import { DashboardHero } from "../components/dashboard/DashboardHero";
 import { PaceCard } from "../components/dashboard/PaceCard";
 import { CategoryCard } from "../components/dashboard/CategoryCard";
 import { ProjectionCard } from "../components/dashboard/ProjectionCard";
+import { BudgetCard } from "../components/dashboard/BudgetCard";
 import { Empty } from "../components/ui";
 import { useModeData } from "../hooks/useModeData";
 import { cashflow, goalSavedCents, healthScore, inMonth, summarize, totalBalanceCents, worstInvoiceStatus } from "../lib/calc";
@@ -47,9 +48,10 @@ export function Home() {
       <div className="lg:col-span-7"><PaceCard transactions={transactions} ym={ym} today={today} /></div>
       <div className="lg:col-span-5"><CategoryCard transactions={transactions} categories={categories} ym={ym} /></div>
       <div className="lg:col-span-5"><ProjectionCard mode={mode} balanceCents={totalBalanceCents(accounts, transactions)} transactions={transactions} cards={cards} today={today} /></div>
+      <div className="lg:col-span-4"><BudgetCard mode={mode} transactions={transactions} categories={categories} today={today} /></div>
       <div className="lg:col-span-3"><HealthCard health={health} /></div>
-      <div className="lg:col-span-4"><CardOverview cards={cards} transactions={transactions} today={today} /></div>
-      <div className="lg:col-span-12"><RecentCard transactions={transactions} lookups={lookups} /></div>
+      <div className="lg:col-span-6"><CardOverview cards={cards} transactions={transactions} today={today} /></div>
+      <div className="lg:col-span-6"><RecentCard transactions={transactions} lookups={lookups} /></div>
       <div className="lg:col-span-12"><GoalsStrip goals={goals} debts={debts} transactions={transactions} /></div>
     </div>
   );
