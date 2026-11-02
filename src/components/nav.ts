@@ -9,6 +9,7 @@ import {
   CalendarClock,
   Gauge,
   WalletCards,
+  ShoppingCart,
   ScanLine,
   Settings as SettingsIcon,
   Target,
@@ -25,6 +26,7 @@ export const sidebarGroups: Array<{ title: string; items: NavItem[] }> = [
       { to: "/", label: "Visão geral", icon: LayoutDashboard, end: true },
       { to: "/transacoes", label: "Transações", icon: ArrowLeftRight },
       { to: "/escanear", label: "Escanear nota", icon: ScanLine },
+      { to: "/compras", label: "Compras e cozinha", icon: ShoppingCart },
       { to: "/cartoes", label: "Cartões", icon: CreditCard },
       { to: "/carteira", label: "Carteira", icon: WalletCards },
       { to: "/contas", label: "Contas", icon: Landmark },
@@ -50,6 +52,7 @@ export const sidebarGroups: Array<{ title: string; items: NavItem[] }> = [
 ];
 
 export const moreItems: NavItem[] = [
+  { to: "/compras", label: "Compras e cozinha", icon: ShoppingCart },
   { to: "/carteira", label: "Carteira", icon: WalletCards },
   { to: "/orcamento", label: "Orçamento", icon: Gauge },
   { to: "/contas-fixas", label: "Contas fixas", icon: CalendarClock },

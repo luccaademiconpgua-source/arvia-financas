@@ -15,6 +15,7 @@ import { Vehicles } from "./routes/Vehicles";
 import { Recurring } from "./routes/Recurring";
 import { Budget } from "./routes/Budget";
 import { Wallet as WalletPage } from "./routes/Wallet";
+import { Kitchen } from "./routes/Kitchen";
 import { Settings } from "./routes/Settings";
 import { NotFound } from "./routes/NotFound";
 import { Login } from "./routes/Login";
@@ -68,6 +69,7 @@ export function App() {
         <Route path="contas-fixas" element={<Recurring />} />
         <Route path="orcamento" element={<Budget />} />
         <Route path="carteira" element={<WalletPage />} />
+        <Route path="compras" element={<Kitchen />} />
         <Route path="ajustes" element={<Settings />} />
         <Route path="*" element={<NotFound />} />
       </Route>
