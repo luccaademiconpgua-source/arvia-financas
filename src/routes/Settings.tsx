@@ -5,9 +5,11 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../store/auth";
 import { usePrefs } from "../store/prefs";
 import { useUI } from "../store/ui";
+import { useRefresh } from "../store/refresh";
+import { useData } from "../store/data";
 import type { Mode } from "../types";
 
-const TABLES = ["accounts", "cards", "card_invoices", "categories", "goals", "debts", "transactions", "nfce_scans"] as const;
+const TABLES = ["accounts", "cards", "card_invoices", "categories", "goals", "debts", "transactions", "nfce_scans", "vehicles", "vehicle_logs", "vehicle_reminders"] as const;
 
 export function Settings() {
   const { profile, household, members, session, reload, signOut } = useAuth();
@@ -97,6 +99,7 @@ export function Settings() {
         <SecondaryButton type="button" onClick={() => void exportJson()}>Exportar arvia-backup.json</SecondaryButton>
         <p className="mt-2 text-sm text-muted">O backup inclui tudo o que você enxerga: seus dados pessoais e os da casa.</p>
       </Card>
+      <ResetCard />
       <Card title="Sessão">
         <SecondaryButton type="button" onClick={() => void signOut()}>Sair da conta</SecondaryButton>
       </Card>
@@ -106,5 +109,54 @@ export function Settings() {
         </p>
       </Card>
     </div>
+  );
+}
+
+function ResetCard() {
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const showToast = useUI((s) => s.showToast);
+  const prefs = usePrefs();
+
+  async function reset() {
+    setBusy(true);
+    setError("");
+    const { error: err } = await supabase.rpc("reset_my_account", { p_confirm: typed.trim().toUpperCase() });
+    setBusy(false);
+    if (err) return setError(err.message);
+    prefs.setStartMode("pessoal");
+    prefs.setMode("pessoal");
+    prefs.setHidden(false);
+    useData.getState().clear();
+    useRefresh.getState().bump();
+    setOpen(false);
+    setTyped("");
+    showToast("Conta redefinida");
+  }
+
+  return (
+    <Card title="Redefinir a conta">
+      <p className="text-sm text-muted">
+        Apaga todos os seus dados do modo Pessoal (contas, cartões, lançamentos, metas, dívidas, veículos e conexões de banco) e volta as categorias e preferências ao padrão. Os dados da Casa não são tocados.
+      </p>
+      {!open ? (
+        <SecondaryButton type="button" className="mt-3" onClick={() => setOpen(true)}>Redefinir minha conta</SecondaryButton>
+      ) : (
+        <div className="mt-3 flex flex-col gap-3 rounded-lg border border-danger/40 bg-expense-bg p-3">
+          <p className="text-sm">Isso não pode ser desfeito. Se quiser guardar uma cópia, use Exportar acima antes. Para confirmar, digite REDEFINIR.</p>
+          <Field label="Confirmação" error={error}>
+            <input className={inputClass} value={typed} onChange={(e) => setTyped(e.target.value)} autoCapitalize="characters" autoComplete="off" />
+          </Field>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" disabled={busy || typed.trim().toUpperCase() !== "REDEFINIR"} onClick={() => void reset()} className="min-h-11 rounded-lg bg-danger px-4 text-sm font-medium text-white disabled:opacity-50">
+              {busy ? "Apagando…" : "Apagar meus dados pessoais"}
+            </button>
+            <SecondaryButton type="button" onClick={() => { setOpen(false); setTyped(""); setError(""); }}>Cancelar</SecondaryButton>
+          </div>
+        </div>
+      )}
+    </Card>
   );
 }

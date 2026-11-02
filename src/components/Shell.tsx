@@ -7,11 +7,13 @@ import { Toast } from "./Toast";
 import { TransactionDetailSheet } from "./TransactionDetailSheet";
 import { TransactionSheet } from "./TransactionSheet";
 import { useAuth } from "../store/auth";
+import { usePrefs } from "../store/prefs";
 
 export function Shell() {
   const name = useAuth((s) => s.profile?.name ?? "");
+  const hidden = usePrefs((s) => s.hidden);
   return (
-    <div className="min-h-dvh bg-page text-ink lg:pl-[260px]">
+    <div className={`min-h-dvh bg-page text-ink lg:pl-[260px] ${hidden ? "hide-values" : ""}`}>
       <Sidebar />
       <div className="mx-auto max-w-[1200px] px-4 lg:px-8">
         <header
@@ -20,7 +22,7 @@ export function Shell() {
         >
           <ModeToggle />
           <div className="flex items-center justify-between gap-3 lg:gap-6">
-            <p className="text-xl font-semibold">Olá, {name}</p>
+            <p className="font-display text-xl font-semibold">Olá, {name}</p>
             <HeaderTools />
           </div>
         </header>

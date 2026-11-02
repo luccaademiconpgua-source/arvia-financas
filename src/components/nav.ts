@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   Link2,
   BarChart3,
+  Car,
   ScanLine,
   Settings as SettingsIcon,
   Target,
@@ -23,6 +24,7 @@ export const sidebarGroups: Array<{ title: string; items: NavItem[] }> = [
       { to: "/escanear", label: "Escanear nota", icon: ScanLine },
       { to: "/cartoes", label: "Cartões", icon: CreditCard },
       { to: "/contas", label: "Contas", icon: Landmark },
+      { to: "/veiculos", label: "Veículos", icon: Car },
     ],
   },
   {
@@ -42,6 +44,7 @@ export const sidebarGroups: Array<{ title: string; items: NavItem[] }> = [
 ];
 
 export const moreItems: NavItem[] = [
+  { to: "/veiculos", label: "Veículos", icon: Car },
   { to: "/contas", label: "Contas", icon: Landmark },
   { to: "/metas", label: "Metas", icon: Target },
   { to: "/dividas", label: "Dívidas", icon: Wallet },

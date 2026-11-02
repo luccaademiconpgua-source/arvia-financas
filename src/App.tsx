@@ -11,6 +11,7 @@ import { Goals } from "./routes/Goals";
 import { Debts } from "./routes/Debts";
 import { Reports } from "./routes/Reports";
 import { Connections } from "./routes/Connections";
+import { Vehicles } from "./routes/Vehicles";
 import { Settings } from "./routes/Settings";
 import { NotFound } from "./routes/NotFound";
 import { Login } from "./routes/Login";
@@ -60,6 +61,7 @@ export function App() {
         <Route path="dividas" element={<Debts />} />
         <Route path="relatorios" element={<Reports />} />
         <Route path="conexoes" element={<Connections />} />
+        <Route path="veiculos" element={<Vehicles />} />
         <Route path="ajustes" element={<Settings />} />
         <Route path="*" element={<NotFound />} />
       </Route>

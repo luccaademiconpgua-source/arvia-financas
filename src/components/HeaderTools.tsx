@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { Bell, Search } from "lucide-react";
+import { Bell, Eye, EyeOff, Search } from "lucide-react";
+import { usePrefs } from "../store/prefs";
 import { useModeData } from "../hooks/useModeData";
 import { worstInvoiceStatus } from "../lib/calc";
 import { format, parseISO } from "date-fns";
@@ -11,6 +12,8 @@ export function HeaderTools() {
   const [q, setQ] = useState("");
   const [bell, setBell] = useState(false);
   const navigate = useNavigate();
+  const hidden = usePrefs((s) => s.hidden);
+  const setHidden = usePrefs((s) => s.setHidden);
   const { cards } = useModeData();
   const overdue = cards.flatMap((c) => (worstInvoiceStatus(c) === "vencida" ? c.invoices.filter((i) => i.status === "vencida") : []));
 
@@ -30,6 +33,9 @@ export function HeaderTools() {
           <Search size={20} aria-hidden="true" />
         </button>
       )}
+      <button type="button" aria-label={hidden ? "Mostrar valores" : "Ocultar valores"} aria-pressed={hidden} onClick={() => setHidden(!hidden)} className="flex size-11 items-center justify-center rounded-lg text-muted hover:text-ink">
+        {hidden ? <EyeOff size={20} aria-hidden="true" /> : <Eye size={20} aria-hidden="true" />}
+      </button>
       <button type="button" aria-label="Notificações" aria-expanded={bell} onClick={() => setBell((v) => !v)} className="relative flex size-11 items-center justify-center rounded-lg text-muted hover:text-ink">
         <Bell size={20} aria-hidden="true" />
         {overdue.length > 0 && <span className="absolute top-2.5 right-2.5 size-2 rounded-full bg-danger" aria-hidden="true" />}

@@ -17,6 +17,11 @@
   --color-warn-bg: #fffbeb;
   --color-danger: #b91c1c;
   --font-sans: system-ui, sans-serif;
+  --font-display: "Onest", system-ui, sans-serif;
+  --color-abyss: #0b3b3c;
+  --color-lagoon: #2dd4bf;
+  --color-coral: #fb7185;
+  --color-amber: #fbbf24;
   --radius-card: 16px;
   --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.06), 0 8px 24px rgba(15, 23, 42, 0.04);
 }
@@ -38,12 +43,77 @@ body {
 }
 
 .card-title {
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-muted);
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-ink);
 }
+
+/* Ocultar valores (ícone de olho no topo) */
+.hide-values .num {
+  filter: blur(8px);
+  user-select: none;
+}
+
+/* ---------- Painel em vidro ---------- */
+.glass-stage {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 24px;
+  background: linear-gradient(160deg, #0e4746 0%, var(--color-abyss) 55%, #082c2d 100%);
+  color: #fff;
+}
+.glass-stage > .blob {
+  position: absolute;
+  z-index: -1;
+  border-radius: 9999px;
+  filter: blur(56px);
+  pointer-events: none;
+}
+.glass-stage > .blob-a { width: 320px; height: 320px; left: -90px; top: -110px; background: var(--color-lagoon); opacity: 0.5; }
+.glass-stage > .blob-b { width: 280px; height: 280px; right: -80px; bottom: -120px; background: var(--color-coral); opacity: 0.42; }
+.glass-stage > .blob-c { width: 180px; height: 180px; right: 32%; top: 18%; background: var(--color-amber); opacity: 0.2; }
+
+.glass {
+  background: rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 18px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 10px 30px rgba(4, 30, 31, 0.25);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+}
+.glass-button {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  transition: background 0.15s;
+}
+.glass-button:hover { background: rgba(255, 255, 255, 0.22); }
+.glass-stage :focus-visible { outline-color: #fff; }
+
+.glass-tip {
+  background: rgba(11, 59, 60, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 12px;
+  color: #fff;
+  padding: 8px 10px;
+  font-size: 13px;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+.light-tip {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--color-line);
+  border-radius: 12px;
+  padding: 8px 10px;
+  font-size: 13px;
+  box-shadow: var(--shadow-card);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.font-display { font-family: var(--font-display); }
 
 @media (prefers-reduced-motion: reduce) {
   *,
