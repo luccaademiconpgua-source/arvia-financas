@@ -7,6 +7,7 @@ import { inputClass } from "../components/Sheet";
 import { sortByDateDesc, TransactionRow } from "../components/TransactionRow";
 import { useModeData } from "../hooks/useModeData";
 import type { Transaction } from "../types";
+import { todayIso } from "../lib/clock";
 
 const norm = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 const chips = [
@@ -42,6 +43,7 @@ export function Transactions() {
     const nq = norm(q.trim());
     return sortByDateDesc(
       transactions.filter((t) => {
+        if (t.installment && t.date > todayIso()) return false;
         if (type === "transferencia") {
           if (!t.isTransfer) return false;
         } else if (type && (t.type !== type || t.isTransfer)) return false;

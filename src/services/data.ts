@@ -60,6 +60,7 @@ const toTx = (r: Row, mode: Mode): Transaction => ({
   ...(r["essential"] !== null && r["essential"] !== undefined ? { essential: Boolean(r["essential"]) } : {}),
   ...(opt(r["nfce_id"]) ? { nfceId: opt(r["nfce_id"]) as string } : {}),
   ...(opt(r["invoice_id"]) ? { invoiceId: opt(r["invoice_id"]) as string } : {}),
+  ...(r["installment_group"] ? { installment: { group: String(r["installment_group"]), no: int(r["installment_no"]), total: int(r["installment_total"]) } } : {}),
   ...(opt(r["debt_id"]) ? { debtId: opt(r["debt_id"]) as string } : {}),
 });
 

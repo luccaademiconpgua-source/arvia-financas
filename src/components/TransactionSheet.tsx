@@ -4,7 +4,9 @@ import { useModeData } from "../hooks/useModeData";
 import { todayIso } from "../lib/clock";
 import { parseBrlToCents } from "../lib/money";
 import { makeTxSchema } from "../lib/txSchema";
-import { addTransaction } from "../store/actions";
+import { addInstallments, addTransaction } from "../store/actions";
+import { formatBrl } from "../lib/money";
+import { splitInstallments } from "../lib/installments";
 import { useUI, type TxType } from "../store/ui";
 import type { Transaction } from "../types";
 
@@ -40,6 +42,7 @@ function TxForm({ initialType, initialGoalId, onClose }: { initialType: TxType; 
   const [categoryId, setCategoryId] = useState("");
   const [accountId, setAccountId] = useState("");
   const [onCard, setOnCard] = useState(false);
+  const [parcelas, setParcelas] = useState(1);
   const [cardId, setCardId] = useState("");
   const [payment, setPayment] = useState<Exclude<Transaction["payment"], "credito">>("pix");
   const [essential, setEssential] = useState<boolean | null>(null);
@@ -88,6 +91,12 @@ function TxForm({ initialType, initialGoalId, onClose }: { initialType: TxType; 
     setSaving(true);
     try {
       const v = parsed.data;
+      if (useCard && parcelas > 1 && v.cardId) {
+        await addInstallments({ mode, description: v.description, totalCents: v.amountCents, count: parcelas, date: v.date, cardId: v.cardId, categoryId: v.categoryId, essential: v.essential });
+        showToast(`Compra lançada em ${parcelas}x`);
+        onClose();
+        return;
+      }
       await addTransaction({
         mode,
         type: v.type,
@@ -123,6 +132,7 @@ function TxForm({ initialType, initialGoalId, onClose }: { initialType: TxType; 
               setCategoryId("");
               setEssential(null);
               setOnCard(false);
+              setParcelas(1);
             }}
             className={`min-h-11 rounded-lg text-sm font-medium ${type === t.value ? "bg-brand text-white" : "text-muted"}`}
           >
@@ -131,7 +141,7 @@ function TxForm({ initialType, initialGoalId, onClose }: { initialType: TxType; 
         ))}
       </div>
 
-      <Field label="Valor" error={errors["amountCents"]}>
+      <Field label={useCard && parcelas > 1 ? "Valor total da compra" : "Valor"} error={errors["amountCents"]}>
         <input className={inputClass} inputMode="decimal" autoComplete="off" placeholder="0,00" value={amount} onChange={(e) => setAmount(e.target.value)} />
       </Field>
       <Field label="Descrição" error={errors["description"]}>
@@ -171,6 +181,20 @@ function TxForm({ initialType, initialGoalId, onClose }: { initialType: TxType; 
       )}
 
       {useCard ? (
+        <>
+        <Field label="Em quantas vezes">
+          <select className={inputClass} value={parcelas} onChange={(e) => setParcelas(Number(e.target.value))}>
+            <option value={1}>À vista</option>
+            {Array.from({ length: 23 }, (_, i) => i + 2).map((n) => (
+              <option key={n} value={n}>{n}x</option>
+            ))}
+          </select>
+        </Field>
+        {parcelas > 1 && (parseBrlToCents(amount) ?? 0) >= parcelas && (
+          <p className="-mt-1 text-sm text-muted">
+            {parcelas}x de <span className="num">{formatBrl(splitInstallments(parseBrlToCents(amount) ?? 0, parcelas)[1]!)}</span>. Cada parcela entra na fatura do seu mês.
+          </p>
+        )}
         <Field label="Cartão" error={errors["cardId"]}>
           <select className={inputClass} value={cardSel} onChange={(e) => setCardId(e.target.value)}>
             {cards.map((c) => (
@@ -180,6 +204,7 @@ function TxForm({ initialType, initialGoalId, onClose }: { initialType: TxType; 
             ))}
           </select>
         </Field>
+        </>
       ) : (
         <>
           <Field label="Conta" error={errors["accountId"]}>

@@ -72,6 +72,8 @@ export type Transaction = {
   nfceId?: string;
   /** fatura afetada: compra no crédito soma nela, pagamento de fatura a quita */
   invoiceId?: string;
+  /** compra parcelada no cartão: parcela `no` de `total` */
+  installment?: { group: string; no: number; total: number };
   /** dívida cuja parcela esta transação pagou */
   debtId?: string;
 };

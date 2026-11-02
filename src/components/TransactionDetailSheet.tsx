@@ -3,7 +3,7 @@ import { format, parseISO } from "date-fns";
 import { PrimaryButton, SecondaryButton, Sheet } from "./Sheet";
 import { useModeData } from "../hooks/useModeData";
 import { formatBrl } from "../lib/money";
-import { classifyTransaction, deleteTransaction, unlinkMatch } from "../store/actions";
+import { classifyTransaction, deleteInstallmentGroup, deleteTransaction, unlinkMatch } from "../store/actions";
 import { inputClass } from "./Sheet";
 import type { Transaction } from "../types";
 import { useUI } from "../store/ui";
@@ -55,6 +55,7 @@ export function TransactionDetailSheet() {
   if (data.goal) rows.push(["Meta", data.goal]);
   if (t.type === "despesa") rows.push(["Essencial", t.essential ? "Sim" : "Não"]);
   if (t.isTransfer) rows.push(["Conta nos totais", "Não, é transferência"]);
+  if (t.installment) rows.push(["Parcela", `${t.installment.no} de ${t.installment.total}`]);
   const canTransfer = (t.type === "receita" || t.type === "despesa") && t.source !== "fatura";
 
   return (
@@ -70,7 +71,7 @@ export function TransactionDetailSheet() {
       {t.bankMatch && <BankMatch t={t} />}
       {canTransfer && <Classify key={t.id} t={t} />}
       <p className="mt-3 text-sm text-muted">Excluir desfaz o efeito deste lançamento no saldo, nas faturas e nas metas.</p>
-      <div className="mt-4 flex gap-2">
+      <div className="mt-4 flex flex-wrap gap-2">
         {confirming ? (
           <>
             <button
@@ -83,8 +84,22 @@ export function TransactionDetailSheet() {
               }}
               className="min-h-11 flex-1 rounded-lg bg-danger px-4 text-sm font-medium text-white"
             >
-              Confirmar exclusão
+              {t.installment ? "Excluir só esta parcela" : "Confirmar exclusão"}
             </button>
+            {t.installment && (
+              <button
+                type="button"
+                onClick={() => {
+                  void deleteInstallmentGroup(t.installment!.group).then(() => {
+                    showToast("Compra parcelada excluída");
+                    done();
+                  });
+                }}
+                className="min-h-11 flex-1 rounded-lg bg-danger px-4 text-sm font-medium text-white"
+              >
+                Excluir as {t.installment.total} parcelas
+              </button>
+            )}
             <SecondaryButton type="button" onClick={() => setConfirming(false)}>
               Cancelar
             </SecondaryButton>

@@ -13,7 +13,8 @@ export function txSubtitle(t: Transaction, l: Lookups): string {
   const cat = l.categories.find((c) => c.id === t.categoryId)?.name;
   const acc = l.accounts.find((a) => a.id === t.accountId)?.name;
   const card = l.cards.find((c) => c.id === t.cardId);
-  return [t.isTransfer ? "Transferência" : cat, card ? `Cartão ${card.label}` : acc].filter(Boolean).join(", ");
+  const parc = t.installment ? `parcela ${t.installment.no} de ${t.installment.total}` : undefined;
+  return [t.isTransfer ? "Transferência" : cat, card ? `Cartão ${card.label}` : acc, parc].filter(Boolean).join(", ");
 }
 
 export function TransactionRow({ t, lookups }: { t: Transaction; lookups: Lookups }) {

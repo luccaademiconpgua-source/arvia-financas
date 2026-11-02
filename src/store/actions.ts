@@ -48,6 +48,25 @@ export async function addTransaction(d: TxDraft): Promise<string> {
   return id;
 }
 
+export async function addInstallments(d: { mode: Mode; description: string; totalCents: number; count: number; date: string; cardId: string; categoryId?: string | undefined; essential?: boolean | undefined }): Promise<string> {
+  const id = await rpc<string>("add_installment_purchase", {
+    p_scope: d.mode,
+    p_description: d.description,
+    p_total_cents: d.totalCents,
+    p_count: d.count,
+    p_date: d.date,
+    p_card_id: d.cardId,
+    p_category_id: d.categoryId ?? null,
+    p_essential: d.essential ?? null,
+  });
+  void afterDataChange().catch(() => undefined);
+  return id;
+}
+
+export async function deleteInstallmentGroup(group: string): Promise<void> {
+  await rpc<number>("delete_installment_group", { p_group: group });
+}
+
 export async function setTransfer(id: string, value: boolean): Promise<void> {
   await rpc<null>("set_transfer", { p_id: id, p_value: value });
 }

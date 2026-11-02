@@ -10,16 +10,57 @@ import { worstInvoiceStatus } from "../lib/calc";
 import { formatBrl } from "../lib/money";
 import { payInvoice } from "../store/actions";
 import { useUI } from "../store/ui";
-import type { Card as CardT, CardInvoice } from "../types";
+import type { Card as CardT, CardInvoice, Transaction } from "../types";
+import { todayIso } from "../lib/clock";
+import { committedByMonth, installmentPurchases } from "../lib/installments";
+import { ptBR } from "date-fns/locale";
+
+/** Parcelas que já ocupam as próximas faturas, mês a mês, e as compras parceladas em andamento. */
+function InstallmentsCard({ txs, cardId }: { txs: Transaction[]; cardId?: string }) {
+  const today = todayIso();
+  const months = committedByMonth(txs, today, 6, cardId);
+  const active = installmentPurchases(txs, today).filter((p) => p.remainingCents > 0 && (!cardId || p.cardId === cardId));
+  if (active.length === 0) return null;
+  const max = Math.max(...months.map((m) => m.cents), 1);
+  return (
+    <Card title="Parcelas a vencer">
+      <p className="text-sm text-muted">Quanto das próximas faturas já está comprometido com compras parceladas.</p>
+      <ul className="mt-3 space-y-2">
+        {months.map((m) => (
+          <li key={m.month} className="grid grid-cols-[4.5rem_1fr_auto] items-center gap-2 text-sm">
+            <span className="capitalize text-muted">{format(parseISO(`${m.month}-01`), "MMM yy", { locale: ptBR })}</span>
+            <span className="h-2 rounded-full bg-page" aria-hidden="true"><span className="block h-2 rounded-full bg-brand" style={{ width: `${(m.cents / max) * 100}%` }} /></span>
+            <span className="num w-24 text-right">{formatBrl(m.cents)}</span>
+          </li>
+        ))}
+      </ul>
+      <ul className="mt-4 divide-y divide-line">
+        {active.map((p) => (
+          <li key={p.group} className="flex items-center justify-between gap-3 py-2 text-sm">
+            <span className="min-w-0">
+              <span className="block truncate font-medium">{p.description}</span>
+              <span className="text-xs text-muted">{p.paidCount} de {p.total} já passaram{p.next ? `, próxima em ${format(parseISO(p.next.date), "dd/MM")}` : ""}</span>
+            </span>
+            <span className="shrink-0 text-right">
+              <span className="num block font-semibold">{formatBrl(p.remainingCents)}</span>
+              <span className="text-xs text-muted">faltam {p.total - p.paidCount}x de <span className="num">{formatBrl(p.installmentCents)}</span></span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
 
 const tone = { vencida: "danger", aberta: "warn", paga: "ok" } as const;
 const label = { vencida: "Vencida", aberta: "Aberta", paga: "Paga" } as const;
 
 export function Cards() {
-  const { mode, ready, cards } = useModeData();
+  const { mode, ready, cards, transactions } = useModeData();
   const [creating, setCreating] = useState(false);
   if (!ready) return <Empty>Carregando…</Empty>;
   return (
+    <div className="flex flex-col gap-4">
     <Card title="Cartões">
       {cards.length === 0 && <Empty>Nenhum cartão ainda.</Empty>}
       <ul className="divide-y divide-line">
@@ -41,6 +82,8 @@ export function Cards() {
       <PrimaryButton type="button" onClick={() => setCreating(true)} className="mt-3">Novo cartão</PrimaryButton>
       {creating && <NewCardSheet mode={mode} onClose={() => setCreating(false)} />}
     </Card>
+    <InstallmentsCard txs={transactions} />
+    </div>
   );
 }
 
@@ -59,7 +102,7 @@ export function CardDetail() {
     );
   }
   const worst = worstInvoiceStatus(card);
-  const purchases = sortByDateDesc(transactions.filter((t) => t.cardId === card.id));
+  const purchases = sortByDateDesc(transactions.filter((t) => t.cardId === card.id && !(t.installment && t.date > todayIso())));
   return (
     <div className="flex flex-col gap-4">
       <Card title={`${card.label} final ${card.last4}`}>
@@ -88,6 +131,7 @@ export function CardDetail() {
           ))}
         </ul>
       </Card>
+      <InstallmentsCard txs={transactions} cardId={card.id} />
       <Card title="Compras no cartão">
         {purchases.length === 0 ? (
           <Empty>Nenhuma compra neste cartão.</Empty>
