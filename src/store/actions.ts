@@ -50,6 +50,10 @@ export async function setTransfer(id: string, value: boolean): Promise<void> {
   await rpc<null>("set_transfer", { p_id: id, p_value: value });
 }
 
+export function classifyTransaction(id: string, transfer: boolean, categoryId: string | null, applySame: boolean) {
+  return rpc<number>("classify_transaction", { p_id: id, p_transfer: transfer, p_category_id: categoryId, p_apply_same: applySame });
+}
+
 export function detectTransfers() {
   return rpc<{ by_name: number; pairs: number }>("detect_transfers", {});
 }

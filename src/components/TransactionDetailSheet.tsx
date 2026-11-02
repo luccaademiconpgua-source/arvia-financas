@@ -3,7 +3,9 @@ import { format, parseISO } from "date-fns";
 import { PrimaryButton, SecondaryButton, Sheet } from "./Sheet";
 import { useModeData } from "../hooks/useModeData";
 import { formatBrl } from "../lib/money";
-import { deleteTransaction, setTransfer } from "../store/actions";
+import { classifyTransaction, deleteTransaction } from "../store/actions";
+import { inputClass } from "./Sheet";
+import type { Transaction } from "../types";
 import { useUI } from "../store/ui";
 
 const typeLabel = { receita: "Receita", despesa: "Despesa", reserva: "Reserva", ajuste: "Ajuste de saldo" } as const;
@@ -64,22 +66,7 @@ export function TransactionDetailSheet() {
           </div>
         ))}
       </dl>
-      {canTransfer && (
-        <div className="mt-3 rounded-lg border border-line p-3">
-          <p className="text-sm">
-            {t.isTransfer
-              ? "Marcado como transferência entre suas contas: não entra em receitas nem despesas."
-              : "Foi dinheiro passando de uma conta sua para outra? Marque como transferência para não contar como gasto nem como ganho."}
-          </p>
-          <SecondaryButton
-            type="button"
-            className="mt-2"
-            onClick={() => void setTransfer(t.id, !t.isTransfer).then(() => showToast(t.isTransfer ? "Voltou a contar nos totais" : "Marcado como transferência"))}
-          >
-            {t.isTransfer ? "Não é transferência" : "É transferência entre minhas contas"}
-          </SecondaryButton>
-        </div>
-      )}
+      {canTransfer && <Classify key={t.id} t={t} />}
       <p className="mt-3 text-sm text-muted">Excluir desfaz o efeito deste lançamento no saldo, nas faturas e nas metas.</p>
       <div className="mt-4 flex gap-2">
         {confirming ? (
@@ -112,5 +99,66 @@ export function TransactionDetailSheet() {
         )}
       </div>
     </Sheet>
+  );
+}
+
+function Classify({ t }: { t: Transaction }) {
+  const { categories } = useModeData();
+  const showToast = useUI((s) => s.showToast);
+  const options = categories.filter((c) => c.kind === t.type);
+  const [mode, setMode] = useState<"transfer" | "category">(t.isTransfer ? "transfer" : "category");
+  const [categoryId, setCategoryId] = useState(t.categoryId ?? options.find((c) => c.name.startsWith("Outra"))?.id ?? options[0]?.id ?? "");
+  const [same, setSame] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const changed = (mode === "transfer") !== Boolean(t.isTransfer) || (mode === "category" && categoryId !== (t.categoryId ?? ""));
+  const label = t.type === "despesa" ? "Despesa" : "Receita";
+
+  async function save() {
+    setBusy(true);
+    setError("");
+    try {
+      const n = await classifyTransaction(t.id, mode === "transfer", mode === "category" ? categoryId || null : null, same);
+      showToast(n > 1 ? `${n} lançamentos atualizados` : "Classificação salva");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Não foi possível salvar.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <fieldset className="mt-3 rounded-lg border border-line p-3">
+      <legend className="px-1 text-sm font-medium">Como contar este lançamento</legend>
+      <div className="flex flex-col gap-2 text-sm">
+        <label className="flex items-start gap-2">
+          <input type="radio" name="classify" className="mt-1 size-4" checked={mode === "transfer"} onChange={() => setMode("transfer")} />
+          <span>
+            Transferência entre contas
+            <span className="block text-xs text-muted">Dinheiro que só mudou de lugar. Não entra em receitas nem despesas.</span>
+          </span>
+        </label>
+        <label className="flex items-start gap-2">
+          <input type="radio" name="classify" className="mt-1 size-4" checked={mode === "category"} onChange={() => setMode("category")} />
+          <span>
+            {label} de verdade
+            <span className="block text-xs text-muted">{t.type === "despesa" ? "Conta como gasto na categoria escolhida." : "Conta como ganho na categoria escolhida."}</span>
+          </span>
+        </label>
+        {mode === "category" && (
+          <select aria-label="Categoria" className={inputClass} value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+            {options.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        )}
+        <label className="flex items-start gap-2">
+          <input type="checkbox" className="mt-1 size-4" checked={same} onChange={(e) => setSame(e.target.checked)} />
+          <span>Aplicar também aos outros lançamentos "{t.description}"</span>
+        </label>
+      </div>
+      {error && <p role="alert" className="mt-2 text-sm text-danger">{error}</p>}
+      <SecondaryButton type="button" className="mt-3" disabled={busy || (!changed && !same)} onClick={() => void save()}>
+        {busy ? "Salvando…" : "Salvar classificação"}
+      </SecondaryButton>
+    </fieldset>
   );
 }
