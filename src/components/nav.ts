@@ -8,6 +8,7 @@ import {
   Car,
   CalendarClock,
   Gauge,
+  WalletCards,
   ScanLine,
   Settings as SettingsIcon,
   Target,
@@ -25,6 +26,7 @@ export const sidebarGroups: Array<{ title: string; items: NavItem[] }> = [
       { to: "/transacoes", label: "Transações", icon: ArrowLeftRight },
       { to: "/escanear", label: "Escanear nota", icon: ScanLine },
       { to: "/cartoes", label: "Cartões", icon: CreditCard },
+      { to: "/carteira", label: "Carteira", icon: WalletCards },
       { to: "/contas", label: "Contas", icon: Landmark },
       { to: "/veiculos", label: "Veículos", icon: Car },
     ],
@@ -48,6 +50,7 @@ export const sidebarGroups: Array<{ title: string; items: NavItem[] }> = [
 ];
 
 export const moreItems: NavItem[] = [
+  { to: "/carteira", label: "Carteira", icon: WalletCards },
   { to: "/orcamento", label: "Orçamento", icon: Gauge },
   { to: "/contas-fixas", label: "Contas fixas", icon: CalendarClock },
   { to: "/veiculos", label: "Veículos", icon: Car },

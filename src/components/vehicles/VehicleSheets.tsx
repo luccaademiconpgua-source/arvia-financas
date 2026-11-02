@@ -3,7 +3,7 @@ import { Field, inputClass, PrimaryButton, SecondaryButton, Sheet } from "../She
 import { todayIso } from "../../lib/clock";
 import { formatBrl, parseBrlToCents } from "../../lib/money";
 import { EXPENSE_TYPES, FUEL_LABEL, SERVICE_TYPES, fillMath, type Fuel, type Reminder, type Vehicle, type VehicleFuel } from "../../lib/vehicle";
-import { addLog, createVehicle, markReminderDone, saveReminder, type Payment } from "../../services/vehicles";
+import { addLog, createVehicle, deleteVehicle, markReminderDone, saveReminder, updateVehicle, type Payment } from "../../services/vehicles";
 import { useUI } from "../../store/ui";
 import type { Account, Card, Category, Mode, Transaction } from "../../types";
 
@@ -31,16 +31,17 @@ function Actions({ busy, onClose, label }: { busy: boolean; onClose: () => void;
 
 // ---------- Novo veículo ----------
 
-export function NewVehicleSheet({ mode, onClose }: { mode: Mode; onClose: () => void }) {
+export function NewVehicleSheet({ mode, vehicle, onClose, onDeleted }: { mode: Mode; vehicle?: Vehicle; onClose: () => void; onDeleted?: () => void }) {
   const showToast = useUI((s) => s.showToast);
-  const [name, setName] = useState("");
-  const [plate, setPlate] = useState("");
-  const [fuel, setFuel] = useState<VehicleFuel>("flex");
-  const [odo, setOdo] = useState("");
+  const [name, setName] = useState(vehicle?.name ?? "");
+  const [plate, setPlate] = useState(vehicle?.plate ?? "");
+  const [fuel, setFuel] = useState<VehicleFuel>(vehicle?.fuel ?? "flex");
+  const [odo, setOdo] = useState(vehicle ? kmFmt.format(vehicle.initialOdometer) : "");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [askDelete, setAskDelete] = useState(false);
   return (
-    <Sheet title="Novo veículo" onClose={onClose}>
+    <Sheet title={vehicle ? `Configurar ${vehicle.name}` : "Novo veículo"} onClose={onClose}>
       <form
         noValidate
         className="flex flex-col gap-3"
@@ -48,9 +49,10 @@ export function NewVehicleSheet({ mode, onClose }: { mode: Mode; onClose: () => 
           e.preventDefault();
           if (!name.trim()) return setError("Informe um nome, como Onix prata.");
           setBusy(true);
-          createVehicle(mode, { name: name.trim().slice(0, 40), plate: plate.trim().toUpperCase().slice(0, 10) || null, fuel, initialOdometer: parseKm(odo) ?? 0 })
+          const data = { name: name.trim().slice(0, 40), plate: plate.trim().toUpperCase().slice(0, 10) || null, fuel, initialOdometer: parseKm(odo) ?? 0 };
+          (vehicle ? updateVehicle(vehicle.id, data) : createVehicle(mode, data))
             .then(() => {
-              showToast("Veículo criado");
+              showToast(vehicle ? "Veículo atualizado" : "Veículo criado");
               onClose();
             })
             .catch((err: Error) => setError(err.message))
@@ -64,10 +66,26 @@ export function NewVehicleSheet({ mode, onClose }: { mode: Mode; onClose: () => 
             {(Object.keys(FUEL_LABEL) as VehicleFuel[]).map((f) => <option key={f} value={f}>{FUEL_LABEL[f]}</option>)}
           </select>
         </Field>
-        <Field label="Quilometragem atual (hodômetro)" error={error}>
+        <Field label={vehicle ? "Hodômetro inicial (quando começou a registrar)" : "Quilometragem atual (hodômetro)"} error={error}>
           <input className={inputClass} inputMode="numeric" value={odo} onChange={(e) => setOdo(e.target.value)} placeholder="48.230" />
         </Field>
-        <Actions busy={busy} onClose={onClose} label="Criar veículo" />
+        {vehicle && <p className="text-xs text-muted">O hodômetro atual é calculado pelos registros. Este valor é o ponto de partida para os km rodados e o custo por km.</p>}
+        <Actions busy={busy} onClose={onClose} label={vehicle ? "Salvar alterações" : "Criar veículo"} />
+        {vehicle && (
+          <div className="border-t border-line pt-3 text-sm">
+            {!askDelete ? (
+              <button type="button" className="min-h-11 text-muted underline underline-offset-4" onClick={() => setAskDelete(true)}>Excluir este veículo</button>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <p>Excluir {vehicle.name} com todo o histórico? As despesas já lançadas nas contas continuam lá.</p>
+                <div className="flex gap-2">
+                  <button type="button" className="min-h-11 rounded-lg bg-danger px-3 font-medium text-white" onClick={() => void deleteVehicle(vehicle.id).then(() => { showToast("Veículo excluído"); onDeleted?.(); onClose(); })}>Excluir</button>
+                  <SecondaryButton type="button" onClick={() => setAskDelete(false)}>Cancelar</SecondaryButton>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </form>
     </Sheet>
   );

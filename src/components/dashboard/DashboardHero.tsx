@@ -66,7 +66,7 @@ export function DashboardHero({ totalCents, accountsCount, points, selected, onS
           <p className="num font-display mt-1 text-[34px] leading-tight font-semibold tracking-tight">{formatBrl(totalCents)}</p>
           <p className="mt-1 text-sm text-white/70">
             {accountsCount} {accountsCount === 1 ? "conta" : "contas"}{" "}
-            <Link to="/contas" className="underline underline-offset-4 hover:text-white">ver contas</Link>
+            <Link to="/carteira" className="underline underline-offset-4 hover:text-white">ver carteira</Link>
           </p>
           <div className="mt-4 grid grid-cols-2 gap-2 lg:mt-auto lg:pt-4">
             <button type="button" onClick={() => openTx({ type: "receita" })} className="glass-button flex min-h-11 items-center justify-center gap-2 text-sm font-medium">

@@ -84,6 +84,11 @@ export async function createVehicle(mode: Mode, v: { name: string; plate: string
   bump();
 }
 
+export async function updateVehicle(id: string, v: { name: string; plate: string | null; fuel: VehicleFuel; initialOdometer: number }) {
+  check(await supabase.from("vehicles").update({ name: v.name, plate: v.plate, fuel: v.fuel, initial_odometer: v.initialOdometer }).eq("id", id));
+  bump();
+}
+
 export async function deleteVehicle(id: string) {
   check(await supabase.from("vehicles").delete().eq("id", id));
   bump();

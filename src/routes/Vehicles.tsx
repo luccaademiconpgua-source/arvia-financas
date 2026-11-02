@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { format, parseISO } from "date-fns";
-import { Bell, Car, Fuel as FuelIcon, Plus, Receipt, Trash2, Wrench } from "lucide-react";
+import { Bell, Car, Fuel as FuelIcon, Plus, Receipt, Settings2, Trash2, Wrench } from "lucide-react";
 import { Card, Empty, Pill } from "../components/ui";
 import { Field, inputClass, PrimaryButton, SecondaryButton } from "../components/Sheet";
 import { GlassStage } from "../components/dashboard/GlassStage";
@@ -26,7 +26,7 @@ import {
   type Vehicle,
   type VehicleLog,
 } from "../lib/vehicle";
-import { deleteLog, deleteReminder, deleteVehicle, saveReminder, useVehicles } from "../services/vehicles";
+import { deleteLog, deleteReminder, saveReminder, useVehicles } from "../services/vehicles";
 import { useUI } from "../store/ui";
 
 const kmFmt = new Intl.NumberFormat("pt-BR");
@@ -35,7 +35,7 @@ const perKm = (c: number | null) => (c === null ? "sem dados" : formatBrl(Math.r
 const dmy = (iso: string) => format(parseISO(iso), "dd/MM/yyyy");
 
 type Tab = "resumo" | "historico" | "lembretes";
-type Open = null | { kind: "veiculo" } | { kind: "abastecimento" | "servico" | "despesa" } | { kind: "lembrete"; reminder?: Reminder };
+type Open = null | { kind: "veiculo" } | { kind: "config" } | { kind: "abastecimento" | "servico" | "despesa" } | { kind: "lembrete"; reminder?: Reminder };
 
 export function Vehicles() {
   const { mode, accounts, cards, categories } = useModeData();
@@ -83,6 +83,9 @@ export function Vehicles() {
         ))}
         <SecondaryButton type="button" onClick={() => setOpen({ kind: "veiculo" })} className="flex items-center gap-1 bg-card">
           <Plus size={16} aria-hidden="true" /> Veículo
+        </SecondaryButton>
+        <SecondaryButton type="button" onClick={() => setOpen({ kind: "config" })} className="flex items-center gap-1 bg-card">
+          <Settings2 size={16} aria-hidden="true" /> Configurar {vehicle.name}
         </SecondaryButton>
       </div>
 
@@ -159,9 +162,9 @@ export function Vehicles() {
         </Card>
       )}
 
-      <DangerZone vehicle={vehicle} onDeleted={() => setSel("")} />
 
       {open?.kind === "veiculo" && <NewVehicleSheet mode={mode} onClose={() => setOpen(null)} />}
+      {open?.kind === "config" && <NewVehicleSheet key={vehicle.id} mode={mode} vehicle={vehicle} onClose={() => setOpen(null)} onDeleted={() => setSel("")} />}
       {open && (open.kind === "abastecimento" || open.kind === "servico" || open.kind === "despesa") && (
         <LogSheet kind={open.kind} mode={mode} vehicle={vehicle} currentOdo={odo} lastDate={lastDate} reminders={vRem} accounts={accounts} cards={cards} categories={categories} onClose={() => setOpen(null)} />
       )}
@@ -334,23 +337,5 @@ function History({ logs, points }: { logs: VehicleLog[]; points: ReturnType<type
         </ul>
       )}
     </Card>
-  );
-}
-
-function DangerZone({ vehicle, onDeleted }: { vehicle: Vehicle; onDeleted: () => void }) {
-  const [ask, setAsk] = useState(false);
-  const showToast = useUI((s) => s.showToast);
-  return (
-    <div className="text-sm">
-      {!ask ? (
-        <button type="button" className="min-h-11 text-muted underline underline-offset-4" onClick={() => setAsk(true)}>Excluir {vehicle.name}</button>
-      ) : (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-line bg-card p-3">
-          <span>Excluir {vehicle.name} com todo o histórico? As despesas já lançadas nas contas continuam lá.</span>
-          <button type="button" className="min-h-10 rounded-lg bg-danger px-3 font-medium text-white" onClick={() => void deleteVehicle(vehicle.id).then(() => { showToast("Veículo excluído"); onDeleted(); })}>Excluir</button>
-          <button type="button" className="min-h-10 px-3 text-muted" onClick={() => setAsk(false)}>Cancelar</button>
-        </div>
-      )}
-    </div>
   );
 }
