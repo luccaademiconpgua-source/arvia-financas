@@ -162,18 +162,17 @@ async function auth(c: { clientId: string; clientSecret: string }) {
 }
 
 async function fetchAllTransactions(apiKey: string, accountId: string, from: string) {
+  // /v2/transactions com paginação por cursor: "next" já vem pronto como query string
   const out: any[] = [];
-  let page = 1;
-  let totalPages = 1;
-  do {
-    const d = await pluggy(
-      `/transactions?accountId=${encodeURIComponent(accountId)}&from=${from}&pageSize=500&page=${page}`,
-      apiKey,
-    );
+  let path: string | null = `/v2/transactions?accountId=${encodeURIComponent(accountId)}&dateFrom=${from}`;
+  let pages = 0;
+  while (path && pages < 40) {
+    const d: any = await pluggy(path, apiKey);
     out.push(...(d?.results ?? []));
-    totalPages = Number(d?.totalPages ?? 1);
-    page++;
-  } while (page <= totalPages && page <= 20);
+    const next = typeof d?.next === "string" && d.next ? d.next : null;
+    path = next ? `/v2/transactions${next.startsWith("?") ? next : `?${next}`}` : null;
+    pages++;
+  }
   return out;
 }
 
@@ -195,7 +194,7 @@ async function syncOne(admin: any, apiKey: string, uid: string, itemId: string) 
         id: a.id,
         type: a.type,
         subtype: a.subtype,
-        name: a.name,
+        name: a.marketingName || a.name,
         number: a.number,
         balance: a.balance,
         creditData: a.creditData ?? null,
@@ -208,12 +207,14 @@ async function syncOne(admin: any, apiKey: string, uid: string, itemId: string) 
         })),
       })),
     );
-    const { data, error } = await admin.rpc("apply_pluggy_sync", { p_owner: uid, p_connector: connector, p_accounts: full });
+    // pelo MeuPluggy o conector é o agregador; o nome do banco já vem no nome da conta
+    const label = /meu\s*pluggy/i.test(connector) ? "" : connector;
+    const { data, error } = await admin.rpc("apply_pluggy_sync", { p_owner: uid, p_connector: label, p_accounts: full });
     if (error) throw new Error(error.message);
     await mark({ status: "ok", last_error: null, last_sync_at: new Date().toISOString(), connector_name: connector });
     return { item_id: itemId, connector, status: "ok", ...data };
   } catch (e) {
-    const msg = e instanceof HttpError ? e.message : "Falha ao sincronizar.";
+    const msg = e instanceof HttpError ? e.message : `Falha ao gravar: ${e instanceof Error ? e.message.slice(0, 160) : "erro desconhecido"}`;
     await mark({ status: "erro", last_error: msg });
     return { item_id: itemId, status: "erro", error: msg };
   }
