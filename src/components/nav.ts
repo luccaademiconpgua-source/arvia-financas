@@ -10,6 +10,7 @@ import {
   Gauge,
   WalletCards,
   ShoppingCart,
+  Handshake,
   ScanLine,
   Settings as SettingsIcon,
   Target,
@@ -29,6 +30,7 @@ export const sidebarGroups: Array<{ title: string; items: NavItem[] }> = [
       { to: "/compras", label: "Compras e cozinha", icon: ShoppingCart },
       { to: "/cartoes", label: "Cartões", icon: CreditCard },
       { to: "/carteira", label: "Carteira", icon: WalletCards },
+  { to: "/acerto", label: "Acerto da casa", icon: Handshake },
       { to: "/contas", label: "Contas", icon: Landmark },
       { to: "/veiculos", label: "Veículos", icon: Car },
     ],
@@ -40,6 +42,7 @@ export const sidebarGroups: Array<{ title: string; items: NavItem[] }> = [
       { to: "/contas-fixas", label: "Contas fixas", icon: CalendarClock },
       { to: "/metas", label: "Metas", icon: Target },
       { to: "/dividas", label: "Dívidas", icon: Wallet },
+      { to: "/acerto", label: "Acerto da casa", icon: Handshake },
     ],
   },
   {
