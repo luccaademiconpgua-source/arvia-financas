@@ -12,13 +12,29 @@ type DetectorCtor = {
   getSupportedFormats?: () => Promise<string[]>;
 };
 
+let wasmReady = false;
+
+/** Detector nativo do navegador ou, se não houver, o ZXing-C++ em WebAssembly (bem mais forte que o ZXing em JS). */
 async function nativeDetector(): Promise<Detector | null> {
   const Ctor = (globalThis as unknown as { BarcodeDetector?: DetectorCtor }).BarcodeDetector;
-  if (!Ctor) return null;
+  if (Ctor) {
+    try {
+      const formats = (await Ctor.getSupportedFormats?.()) ?? ["qr_code"];
+      if (formats.includes("qr_code")) return new Ctor({ formats: ["qr_code"] });
+    } catch {
+      /* segue para o WebAssembly */
+    }
+  }
   try {
-    const formats = (await Ctor.getSupportedFormats?.()) ?? ["qr_code"];
-    if (!formats.includes("qr_code")) return null;
-    return new Ctor({ formats: ["qr_code"] });
+    const mod = await import("barcode-detector/ponyfill");
+    if (!wasmReady) {
+      const { default: wasmUrl } = await import("zxing-wasm/reader/zxing_reader.wasm?url");
+      mod.prepareZXingModule({
+        overrides: { locateFile: (path: string, prefix: string) => (path.endsWith(".wasm") ? wasmUrl : prefix + path) },
+      });
+      wasmReady = true;
+    }
+    return new mod.BarcodeDetector({ formats: ["qr_code"] }) as unknown as Detector;
   } catch {
     return null;
   }
