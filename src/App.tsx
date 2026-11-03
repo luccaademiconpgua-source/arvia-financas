@@ -19,6 +19,8 @@ import { Kitchen } from "./routes/Kitchen";
 import { Settle } from "./routes/Settle";
 import { NetWorth } from "./routes/NetWorth";
 import { MonthSummary } from "./routes/MonthSummary";
+import { Assistant } from "./routes/Assistant";
+import { Agenda } from "./routes/Agenda";
 import { Settings } from "./routes/Settings";
 import { NotFound } from "./routes/NotFound";
 import { Login } from "./routes/Login";
@@ -76,6 +78,8 @@ export function App() {
         <Route path="acerto" element={<Settle />} />
         <Route path="patrimonio" element={<NetWorth />} />
         <Route path="resumo" element={<MonthSummary />} />
+        <Route path="assistente" element={<Assistant />} />
+        <Route path="agenda" element={<Agenda />} />
         <Route path="ajustes" element={<Settings />} />
         <Route path="*" element={<NotFound />} />
       </Route>

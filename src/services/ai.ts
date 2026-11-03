@@ -152,3 +152,11 @@ export async function taskFromText(text: string): Promise<TaskAction | null> {
   const r = await ai<{ task: TaskAction | null }>("task", { text });
   return r.task;
 }
+
+// ---------- Lançamento rápido por voz ----------
+export type CaptureResult = { text: string; actions: Array<TxAction | TaskAction>; missing: string[]; provider: Provider };
+
+/** Áudio (ou texto) -> lançamentos e tarefas já separados pela IA. */
+export function capture(input: { audio: string; mime: string } | { text: string }) {
+  return ai<CaptureResult>("capture", input);
+}

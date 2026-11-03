@@ -8,6 +8,7 @@
 //   photo_list  {image, mime}            -> {items:[...]}                      (foto de lista escrita à mão)
 //   chat        {messages:[{role,content}]} -> {reply, actions:[...]}         (assistente com os dados da pessoa)
 //   task        {text}                   -> {task:{title,date,time,priority}} (agenda por texto livre)
+//   capture     {audio,mime} ou {text}   -> {text, actions:[transaction|task], missing:[...]} (lançamento rápido por voz)
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const cors = {
@@ -194,6 +195,28 @@ Responda SEMPRE e SÓ com JSON neste formato:
 Se não houver ação, use "actions": [].`;
 }
 
+
+function captureSystem(ctx: unknown) {
+  const t = todayBR();
+  return `Você transforma o que a pessoa falou em lançamentos do app de finanças Arvia (pt-BR). Hoje é ${t.weekday}, ${t.date}.
+Cadastros da pessoa (use os nomes EXATOS daqui; os últimos lançamentos mostram como ela costuma classificar):
+${JSON.stringify(ctx)}
+
+Regras:
+- Cada gasto ou recebimento falado vira uma transação. "gastei", "paguei", "comprei", "saiu" = despesa. "recebi", "entrou", "caiu", "ganhei" = receita.
+- amount em reais (número). "45 conto" = 45. "dois mil" = 2000. "mil e duzentos" = 1200.
+- category: o nome EXATO de uma categoria do mesmo tipo. Escolha pelo sentido (padaria, ifood, restaurante = Restaurante ou Alimentação se existir; posto = Gasolina; farmácia = Saúde; luz, água, internet = Contas). Se a pessoa já lançou algo parecido nos últimos lançamentos, siga a mesma categoria.
+- description: curta e útil, com o nome do lugar se falado ("Padaria", "Posto Shell", "Comissão Ademicon").
+- payment: pix, dinheiro, debito ou credito. Sem informação: pix. "no cartão" sem dizer débito = credito.
+- account: nome exato da conta citada ("no Nubank", "pelo C6"); card: nome exato do cartão se for crédito; installments se falar "em 3x".
+- scope: "casa" se for gasto da casa (mercado, contas da casa, carro, feira) e tem_casa for true; senão "pessoal".
+- date AAAA-MM-DD: hoje, salvo "ontem", "anteontem", "sexta passada", "dia 10".
+- Compromissos e lembretes ("dentista amanhã 15h") viram tarefa.
+- Se faltar o valor de um gasto, NÃO crie a transação: coloque a frase em "missing".
+Responda só JSON:
+{"actions":[{"kind":"transaction","type":"despesa","amount":45,"description":"Mercado","category":"Mercado","payment":"pix","account":null,"card":null,"installments":null,"scope":"pessoal","date":"${t.date}"},{"kind":"task","title":"Dentista","date":"AAAA-MM-DD","time":"15:00","priority":"normal"}],"missing":["o uber de ontem"]}`;
+}
+
 function cleanActions(raw: unknown) {
   const list = (raw as { actions?: unknown })?.actions;
   if (!Array.isArray(list)) return [];
@@ -287,6 +310,25 @@ Deno.serve(async (req) => {
       const r = await llm(keys, `Hoje é ${t.weekday}, ${t.date}. Transforme o pedido em uma tarefa de agenda. Datas relativas ("amanhã", "quinta", "dia 10") viram AAAA-MM-DD no futuro mais próximo. Responda só JSON: {"title":"...","date":"AAAA-MM-DD ou null","time":"HH:MM ou null","priority":"baixa|normal|alta"}`, [{ role: "user", content: text }], true);
       const [task] = cleanActions({ actions: [{ kind: "task", ...(parseJson(r.text) as object) }] });
       return json({ task: task ?? null, provider: r.provider });
+    }
+
+    if (action === "capture") {
+      let text = String(body.text ?? "").slice(0, 3000).trim();
+      if (!text) {
+        const audio = String(body.audio ?? "");
+        if (audio.length < 100 || audio.length > 14_000_000) return json({ error: "Áudio vazio ou longo demais (até uns 5 minutos)." }, 400);
+        text = (await transcribe(keys, audio, String(body.mime ?? "audio/webm"))).text;
+      }
+      if (!text) return json({ text: "", actions: [], missing: [] });
+      const { data: ctx, error: cerr } = await admin.rpc("assistant_context", { p_owner: uid });
+      if (cerr) return json({ error: "Não consegui ler seus dados agora." }, 500);
+      const c = ctx as Record<string, unknown>;
+      const slim = { tem_casa: c.tem_casa, categorias: c.categorias, contas: c.contas, cartoes: c.cartoes, ultimos_lancamentos: c.ultimos_lancamentos };
+      const r = await llm(keys, captureSystem(slim), [{ role: "user", content: text }], true);
+      const parsed = parseJson(r.text) as { missing?: unknown };
+      const actions = cleanActions(parsed).filter((a) => a.kind !== "shopping");
+      const missing = Array.isArray(parsed?.missing) ? parsed.missing.slice(0, 5).map((m) => String(m).slice(0, 120)) : [];
+      return json({ text, actions, missing, provider: r.provider });
     }
 
     if (action === "chat") {

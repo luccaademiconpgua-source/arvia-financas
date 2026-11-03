@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink } from "react-router";
-import { ArrowLeftRight, CreditCard, LayoutDashboard, Menu, ScanLine } from "lucide-react";
+import { ArrowLeftRight, LayoutDashboard, Menu, ScanLine, Sparkles } from "lucide-react";
 import { MoreSheet } from "./MoreSheet";
 
 const itemClass = ({ isActive }: { isActive: boolean }) =>
@@ -29,9 +29,9 @@ export function BottomNav() {
               <ScanLine size={24} aria-hidden="true" />
             </span>
           </NavLink>
-          <NavLink to="/cartoes" className={itemClass}>
-            <CreditCard size={20} aria-hidden="true" />
-            Cartões
+          <NavLink to="/assistente" className={itemClass}>
+            <Sparkles size={20} aria-hidden="true" />
+            Assistente
           </NavLink>
           <button type="button" onClick={() => setMoreOpen(true)} className={itemClass({ isActive: false })}>
             <Menu size={20} aria-hidden="true" />

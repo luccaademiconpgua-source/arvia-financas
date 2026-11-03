@@ -1,15 +1,17 @@
 import { NavLink } from "react-router";
 import { Settings } from "lucide-react";
-import { sidebarGroups } from "./nav";
+import { groupsFor } from "./nav";
+import { usePrefs } from "../store/prefs";
 import { useAuth } from "../store/auth";
 
 export function Sidebar() {
   const name = useAuth((s) => s.profile?.name ?? "");
+  const mode = usePrefs((s) => s.mode);
   return (
     <aside className="fixed inset-y-0 left-0 hidden w-[260px] flex-col bg-brand-dark py-6 text-white lg:flex" aria-label="Menu principal">
       <p className="font-display mb-6 px-6 text-2xl font-semibold">Arvia</p>
       <nav className="sidebar-scroll flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overscroll-contain px-6 pb-4">
-        {sidebarGroups.map((g) => (
+        {groupsFor(mode, ["/ajustes"]).map((g) => (
           <div key={g.title} className="flex flex-col gap-1">
             <p className="mb-1 px-3 text-xs font-medium text-white/60">{g.title}</p>
             {g.items.map((item) => (
