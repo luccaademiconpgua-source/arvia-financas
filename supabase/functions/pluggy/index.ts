@@ -1,5 +1,6 @@
 // Edge Function: ponte entre o Arvia e a API da Pluggy (Meu Pluggy).
 // Ações: connect_token | save_item | sync | disconnect
+// Rotina de hora em hora (header x-cron-secret): sincroniza as conexões de todo mundo.
 // O Client Secret nunca sai do servidor: é lido do Vault com service_role.
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -49,6 +50,9 @@ async function pluggy(path: string, apiKey: string | null, init: RequestInit = {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "Método não permitido." }, 405);
+
+  const cronSecret = req.headers.get("x-cron-secret");
+  if (cronSecret) return await syncAllFromCron(cronSecret);
 
   try {
     const url = Deno.env.get("SUPABASE_URL")!;
@@ -220,4 +224,37 @@ async function syncOne(admin: any, apiKey: string, uid: string, itemId: string) 
     await mark({ status: "erro", last_error: msg });
     return { item_id: itemId, status: "erro", error: msg };
   }
+}
+
+function sameSecret(a: string, b: string) {
+  if (a.length !== b.length || !b) return false;
+  let r = 0;
+  for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return r === 0;
+}
+
+/** Chamada pela rotina do banco (pg_cron) de hora em hora: puxa as novidades de todas as conexões ativas. */
+async function syncAllFromCron(secret: string) {
+  const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
+  const { data: cfg } = await admin.rpc("push_config");
+  if (!sameSecret(secret, String(cfg?.push_cron_secret ?? ""))) return json({ error: "Não autorizado." }, 401);
+
+  const { data: items } = await admin.from("pluggy_items").select("owner_id,item_id,status").neq("status", "expirada");
+  const byOwner = new Map<string, string[]>();
+  for (const it of items ?? []) byOwner.set(it.owner_id, [...(byOwner.get(it.owner_id) ?? []), it.item_id]);
+
+  const report: Record<string, unknown>[] = [];
+  for (const [owner, ids] of byOwner) {
+    try {
+      const creds = await getCreds(admin, owner);
+      if (!creds) continue;
+      const apiKey = await auth(creds);
+      for (const id of ids) report.push(await syncOne(admin, apiKey, owner, id));
+      // as mesmas regras de quando o app sincroniza: transferências, categorias, conciliação e contas fixas
+      await admin.rpc("watch_after", { p_owner: owner });
+    } catch (e) {
+      report.push({ owner, status: "erro", error: e instanceof Error ? e.message.slice(0, 160) : "erro" });
+    }
+  }
+  return json({ owners: byOwner.size, results: report.map((r) => ({ status: r.status, inserted: r.inserted, updated: r.updated })) });
 }
