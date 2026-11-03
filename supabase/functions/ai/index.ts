@@ -9,11 +9,13 @@
 //   chat        {messages:[{role,content}]} -> {reply, actions:[...]}         (assistente com os dados da pessoa)
 //   task        {text}                   -> {task:{title,date,time,priority}} (agenda por texto livre)
 //   capture     {audio,mime} ou {text}   -> {text, actions:[transaction|task], missing:[...]} (lançamento rápido por voz)
+//   relógio     header x-arvia-chave (ou "chave" no corpo) + {texto}  -> texto para o relógio falar
+//               lança direto o que for gasto/recebimento/compromisso, responde perguntas e entende "desfazer"
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const cors = {
   "access-control-allow-origin": "*",
-  "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
+  "access-control-allow-headers": "authorization, x-client-info, apikey, content-type, x-arvia-chave",
   "access-control-allow-methods": "POST, OPTIONS",
 };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, "content-type": "application/json" } });
@@ -259,25 +261,168 @@ function cleanActions(raw: unknown) {
   });
 }
 
+
+// ---------- Apple Watch / Siri (app Atalhos) ----------
+type Cat = { id: string; name: string; kind: string; scope: string };
+type Acc = { id: string; name: string; type: string; scope: string };
+type Crd = { id: string; label: string; scope: string };
+type Catalog = { household: string | null; categories: Cat[]; accounts: Acc[]; cards: Crd[] };
+
+const nrm = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+function pick<T>(list: T[], name: unknown, label: (x: T) => string): T | undefined {
+  if (!name) return undefined;
+  const n = nrm(String(name));
+  if (!n) return undefined;
+  return list.find((x) => nrm(label(x)) === n) ?? list.find((x) => nrm(label(x)).includes(n) || n.includes(nrm(label(x))));
+}
+const brl = (c: number) => (c / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const PAYW: Record<string, string> = { pix: "Pix", dinheiro: "dinheiro", debito: "débito", credito: "crédito" };
+
+/** Liga o que a IA entendeu aos cadastros. No relógio não dá para perguntar: usa o mais provável. */
+function resolveWatchTx(a: Record<string, unknown>, cat: Catalog) {
+  const scope = a.scope === "casa" && cat.household ? "casa" : "pessoal";
+  const type = a.type === "receita" ? "receita" : "despesa";
+  const cats = cat.categories.filter((c) => c.scope === scope && c.kind === type);
+  const accs = cat.accounts.filter((c) => c.scope === scope);
+  const cards = cat.cards.filter((c) => c.scope === scope);
+  const category = pick(cats, a.category, (c) => c.name) ?? pick(cats, a.description, (c) => c.name) ?? cats.find((c) => nrm(c.name).startsWith("outr"));
+  let card: Crd | undefined;
+  let account: Acc | undefined;
+  let payment = String(a.payment ?? "pix");
+  if (type === "despesa" && (payment === "credito" || a.card)) card = pick(cards, a.card, (c) => c.label) ?? cards[0];
+  if (!card) {
+    if (payment === "credito") payment = "debito";
+    account = pick(accs, a.account, (x) => x.name) ?? (payment === "dinheiro" ? accs.find((x) => x.type === "dinheiro") : undefined)
+      ?? accs.find((x) => x.type !== "dinheiro" && x.type !== "investimento") ?? accs[0];
+  }
+  return {
+    scope, type,
+    amount_cents: Number(a.amount_cents),
+    description: String(a.description ?? category?.name ?? "Lançamento").slice(0, 80),
+    date: String(a.date),
+    payment: card ? "credito" : payment,
+    category_id: category?.id ?? null, category_name: category?.name ?? null,
+    account_id: account?.id ?? null, account_name: account?.name ?? null,
+    card_id: card?.id ?? null, card_name: card?.label ?? null,
+    installments: card && Number(a.installments) >= 2 ? Number(a.installments) : null,
+  };
+}
+
+function voiceSystem(ctx: unknown) {
+  const t = todayBR();
+  return `Você é o assistente da Arvia respondendo pelo Apple Watch: a resposta será LIDA EM VOZ ALTA.
+Responda em português do Brasil, em no máximo 3 frases curtas, sem listas, sem markdown, sem emojis e sem travessão. Diga valores por extenso de forma natural ("R$ 1.250" vira "mil duzentos e cinquenta reais").
+Hoje é ${t.weekday}, ${t.date}, ${t.time}. Use só estes DADOS para números; se não tiver a informação, diga que não tem no app:
+${JSON.stringify(ctx)}`;
+}
+
+async function handleWatch(admin: ReturnType<typeof createClient>, uid: string, keys: Keys, said: string): Promise<string> {
+  const text = said.trim().slice(0, 1500);
+  if (!text) return "Não ouvi nada. Tente de novo.";
+
+  if (/^(desfa[zç]|desfazer|cancela(r)? (o )?[uú]ltimo|apaga(r)? (o )?[uú]ltimo)/i.test(text)) {
+    const { data } = await admin.rpc("watch_undo", { p_owner: uid });
+    const n = Number((data as { undone?: number })?.undone ?? 0);
+    return n ? `Pronto, desfiz ${n === 1 ? "o último lançamento" : `os ${n} últimos lançamentos`}.` : "Não achei nada lançado pelo relógio nos últimos 30 minutos.";
+  }
+
+  const { data: ctx } = await admin.rpc("assistant_context", { p_owner: uid });
+  const c = (ctx ?? {}) as Record<string, unknown>;
+  const slim = { tem_casa: c.tem_casa, categorias: c.categorias, contas: c.contas, cartoes: c.cartoes, ultimos_lancamentos: c.ultimos_lancamentos };
+  const r = await llm(keys, captureSystem(slim), [{ role: "user", content: text }], true);
+  let parsed: { missing?: unknown } = {};
+  try {
+    parsed = parseJson(r.text) as { missing?: unknown };
+  } catch {
+    parsed = {};
+  }
+  const actions = cleanActions(parsed).filter((a) => a.kind !== "shopping");
+  const missing = Array.isArray(parsed?.missing) ? parsed.missing.map((m) => String(m)) : [];
+
+  if (actions.length === 0 && missing.length === 0) {
+    // não é lançamento: é pergunta para o assistente
+    const ans = await llm(keys, voiceSystem(ctx), [{ role: "user", content: text }], false);
+    return ans.text.replace(/\*\*/g, "").replace(/^\s*[-•]\s*/gm, "").trim().slice(0, 600) || "Não consegui responder agora.";
+  }
+
+  const { data: catData } = await admin.rpc("watch_catalog", { p_owner: uid });
+  const cat = catData as Catalog;
+  const txIds: string[] = [];
+  const groupIds: string[] = [];
+  const taskIds: string[] = [];
+  const said_parts: string[] = [];
+  for (const a of actions) {
+    if (a.kind === "task") {
+      const { data: t, error } = await admin.from("tasks").insert({ owner_id: uid, scope: "pessoal", title: a.title, date: a.date, time: a.time, priority: a.priority }).select("id").single();
+      if (!error && t) {
+        taskIds.push(String(t.id));
+        said_parts.push(`na agenda: ${a.title}${a.date ? ` em ${String(a.date).slice(8, 10)}/${String(a.date).slice(5, 7)}` : ""}${a.time ? ` às ${a.time}` : ""}`);
+      }
+      continue;
+    }
+    const tx = resolveWatchTx(a, cat);
+    if (!tx.account_id && !tx.card_id) {
+      said_parts.push(`não lancei ${brl(tx.amount_cents)} de ${tx.description} porque não há conta cadastrada`);
+      continue;
+    }
+    const { data: id, error } = await admin.rpc("watch_add_tx", { p_owner: uid, p: tx });
+    if (error || !id) {
+      said_parts.push(`não consegui lançar ${brl(tx.amount_cents)} de ${tx.description}`);
+      continue;
+    }
+    (tx.installments ? groupIds : txIds).push(String(id));
+    const onde = tx.card_name ? `no cartão ${tx.card_name}${tx.installments ? ` em ${tx.installments} vezes` : ""}` : `${PAYW[tx.payment] ?? tx.payment}${tx.account_name ? ` na ${tx.account_name}` : ""}`;
+    said_parts.push(`${tx.type === "receita" ? "receita" : "despesa"} de ${brl(tx.amount_cents)} em ${tx.category_name ?? "sem categoria"}, ${onde}${tx.scope === "casa" ? ", na Casa" : ""}`);
+  }
+  if (txIds.length || groupIds.length || taskIds.length) {
+    await admin.from("watch_events").insert({ owner_id: uid, said: text, tx_ids: txIds, group_ids: groupIds, task_ids: taskIds });
+    await admin.rpc("watch_after", { p_owner: uid });
+  }
+  let out = said_parts.length ? `Lancei: ${said_parts.join("; ")}.` : "";
+  if (missing.length) out += `${out ? " " : ""}Faltou o valor de ${missing.join(" e ")}.`;
+  if (txIds.length || groupIds.length) out += " Se errei, diga desfazer.";
+  return out.trim();
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "Método não permitido." }, 405);
+  const plain = (t: string, status = 200) => new Response(t, { status, headers: { ...cors, "content-type": "text/plain; charset=utf-8" } });
+  let watchMode = false;
   try {
     const url = Deno.env.get("SUPABASE_URL")!;
-    const authHeader = req.headers.get("Authorization") ?? "";
-    const userClient = createClient(url, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: authHeader } }, auth: { persistSession: false } });
-    const { data: u, error: uerr } = await userClient.auth.getUser();
-    if (uerr || !u.user) return json({ error: "Entre na sua conta." }, 401);
-    const uid = u.user.id;
     const admin = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
+    const raw = await req.text();
+    let body: Record<string, unknown> = {};
+    try {
+      body = raw ? JSON.parse(raw) : {};
+    } catch {
+      // o Atalhos pode mandar só o texto puro
+      body = { texto: raw };
+    }
+
+    // relógio: chave pessoal no header x-arvia-chave ou no corpo
+    const watchKey = (req.headers.get("x-arvia-chave") ?? String(body.chave ?? "")).trim();
+    let uid: string;
+    if (watchKey) {
+      watchMode = true;
+      if (!/^arv_[A-Za-z0-9_-]{20,60}$/.test(watchKey)) return plain("Chave inválida. Gere uma chave nova nos Ajustes da Arvia.", 401);
+      const { data: owner } = await admin.rpc("watch_owner", { p_key: watchKey });
+      if (!owner) return plain("Essa chave não vale mais. Gere uma nova nos Ajustes da Arvia.", 401);
+      uid = String(owner);
+    } else {
+      const authHeader = req.headers.get("Authorization") ?? "";
+      const userClient = createClient(url, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: authHeader } }, auth: { persistSession: false } });
+      const { data: u, error: uerr } = await userClient.auth.getUser();
+      if (uerr || !u.user) return json({ error: "Entre na sua conta." }, 401);
+      uid = u.user.id;
+    }
     const [g1, g2] = await Promise.all([admin.rpc("get_ai_key", { p_owner: uid, p_provider: "groq" }), admin.rpc("get_ai_key", { p_owner: uid, p_provider: "gemini" })]);
     const keys: Keys = { groq: (g1.data as string | null) ?? null, gemini: (g2.data as string | null) ?? null };
 
-    let body: Record<string, unknown> = {};
-    try {
-      body = await req.json();
-    } catch {
-      return json({ error: "Pedido inválido." }, 400);
+    if (watchMode) {
+      if (!keys.groq && !keys.gemini) return plain("A inteligência artificial não está configurada. Cole a chave do Groq ou do Gemini nos Ajustes da Arvia.");
+      return plain(await handleWatch(admin, uid, keys, String(body.texto ?? body.text ?? "")));
     }
     const action = String(body.action ?? "");
 
@@ -352,6 +497,10 @@ Deno.serve(async (req) => {
 
     return json({ error: "Ação inválida." }, 400);
   } catch (e) {
+    if (watchMode) {
+      const m = e instanceof AiError && e.code.startsWith("chave") ? "A chave da inteligência artificial foi recusada. Troque nos Ajustes da Arvia." : e instanceof AiError && /429/.test(e.message) ? "A cota grátis da IA acabou por agora. Tente em alguns minutos." : "Não consegui agora. Tente de novo em instantes.";
+      return plain(m);
+    }
     if (e instanceof AiError) return json({ error: e.code, message: e.message }, e.code === "falhou" ? 502 : 400);
     return json({ error: "falhou", message: "Não consegui responder agora." }, 500);
   }

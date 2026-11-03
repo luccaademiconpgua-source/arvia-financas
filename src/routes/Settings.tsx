@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Card } from "../components/ui";
 import { NewPasswordForm } from "../components/NewPasswordForm";
+import { WatchCard } from "../components/WatchCard";
 import { Field, inputClass, PrimaryButton, SecondaryButton } from "../components/Sheet";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../store/auth";
@@ -106,6 +107,7 @@ export function Settings() {
       </Card>
       <PasswordCard />
       <PushCard />
+      <WatchCard />
       <GeminiCard />
       <TransferNamesCard />
       <CategoryRulesCard />
