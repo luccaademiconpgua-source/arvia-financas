@@ -25,9 +25,10 @@ import { Settings } from "./routes/Settings";
 import { NotFound } from "./routes/NotFound";
 import { Login } from "./routes/Login";
 import { HouseSetup } from "./routes/HouseSetup";
+import { NewPasswordForm } from "./components/NewPasswordForm";
 
 export function App() {
-  const { loading, session, household, init } = useAuth();
+  const { loading, session, household, init, recovering, setRecovering } = useAuth();
   const [skipHouse, setSkipHouse] = useState(() => {
     try {
       return localStorage.getItem("arvia-skip-house") === "1";
@@ -41,7 +42,24 @@ export function App() {
   }, [init]);
 
   if (loading) return <p className="p-4 text-muted">Abrindo o Arvia…</p>;
-  if (!session) return <Login />;
+  if (!session) return <Login linkExpired={recovering} />;
+  if (recovering) {
+    return (
+      <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 px-4 py-8">
+        <div>
+          <h1 className="text-3xl font-semibold text-brand-dark">Arvia</h1>
+          <p className="mt-1 text-sm text-muted">Crie a sua senha nova para {session.user.email}.</p>
+        </div>
+        <NewPasswordForm
+          cta="Salvar e entrar"
+          onDone={() => {
+            window.history.replaceState(null, "", "/");
+            setRecovering(false);
+          }}
+        />
+      </main>
+    );
+  }
   if (!household && !skipHouse) {
     return (
       <HouseSetup

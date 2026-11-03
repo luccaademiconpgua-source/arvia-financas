@@ -12,6 +12,9 @@ type AuthState = {
   profile: Profile | null;
   household: Household | null;
   members: Profile[];
+  /** abriu o link de "esqueci minha senha": mostra a tela de senha nova */
+  recovering: boolean;
+  setRecovering: (v: boolean) => void;
   init: () => Promise<void>;
   reload: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -35,6 +38,8 @@ export const useAuth = create<AuthState>((set, get) => ({
   profile: null,
   household: null,
   members: [],
+  recovering: typeof window !== "undefined" && (window.location.hash.includes("type=recovery") || window.location.pathname === "/nova-senha"),
+  setRecovering: (v) => set({ recovering: v }),
   init: async () => {
     const { data } = await supabase.auth.getSession();
     const apply = async (session: Session | null) => {
@@ -46,7 +51,8 @@ export const useAuth = create<AuthState>((set, get) => ({
       set({ session, ...extra, loading: false });
     };
     await apply(data.session);
-    supabase.auth.onAuthStateChange((_event, session) => {
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY") set({ recovering: true });
       // adiar: não chamar o Supabase de dentro do callback
       setTimeout(() => void apply(session), 0);
     });

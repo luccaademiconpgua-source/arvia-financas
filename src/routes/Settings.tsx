@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Card } from "../components/ui";
+import { NewPasswordForm } from "../components/NewPasswordForm";
 import { Field, inputClass, PrimaryButton, SecondaryButton } from "../components/Sheet";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../store/auth";
@@ -103,6 +104,7 @@ export function Settings() {
         <SecondaryButton type="button" onClick={() => void exportJson()}>Exportar arvia-backup.json</SecondaryButton>
         <p className="mt-2 text-sm text-muted">O backup inclui tudo o que você enxerga: seus dados pessoais e os da casa.</p>
       </Card>
+      <PasswordCard />
       <PushCard />
       <GeminiCard />
       <TransferNamesCard />
@@ -117,6 +119,24 @@ export function Settings() {
         </p>
       </Card>
     </div>
+  );
+}
+
+function PasswordCard() {
+  const showToast = useUI((s) => s.showToast);
+  const email = useAuth((s) => s.session?.user.email ?? "");
+  const [open, setOpen] = useState(false);
+  return (
+    <Card title="Senha">
+      <p className="text-sm text-muted">Você entra com {email}.</p>
+      {open ? (
+        <div className="mt-3">
+          <NewPasswordForm onDone={() => { setOpen(false); showToast("Senha trocada"); }} />
+        </div>
+      ) : (
+        <SecondaryButton type="button" className="mt-3" onClick={() => setOpen(true)}>Trocar senha</SecondaryButton>
+      )}
+    </Card>
   );
 }
 
