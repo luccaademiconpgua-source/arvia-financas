@@ -1,3 +1,4 @@
+import type { Mode } from "../types";
 import { useMemo, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -68,7 +69,7 @@ export function Budget() {
   );
 }
 
-function LineItem({ line, name, mode }: { line: BudgetLine; name: string; mode: "pessoal" | "casa" }) {
+function LineItem({ line, name, mode }: { line: BudgetLine; name: string; mode: Mode }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState((line.limitCents / 100).toFixed(2).replace(".", ","));
   const showToast = useUI((s) => s.showToast);
@@ -118,7 +119,7 @@ function LineItem({ line, name, mode }: { line: BudgetLine; name: string; mode: 
   );
 }
 
-function AddLimit({ mode, options, avg }: { mode: "pessoal" | "casa"; options: Array<{ id: string; name: string }>; avg: Map<string, number> }) {
+function AddLimit({ mode, options, avg }: { mode: Mode; options: Array<{ id: string; name: string }>; avg: Map<string, number> }) {
   const showToast = useUI((s) => s.showToast);
   const sorted = [...options].sort((a, b) => (avg.get(b.id) ?? 0) - (avg.get(a.id) ?? 0));
   const [picked, setCat] = useState(sorted[0]?.id ?? "");
@@ -158,7 +159,7 @@ function AddLimit({ mode, options, avg }: { mode: "pessoal" | "casa"; options: A
   );
 }
 
-function SavingsCard({ mode, pct, existing, ym }: { mode: "pessoal" | "casa"; pct: number | null; existing: ReturnType<typeof useBudgets>["budgets"][number] | undefined; ym: string }) {
+function SavingsCard({ mode, pct, existing, ym }: { mode: Mode; pct: number | null; existing: ReturnType<typeof useBudgets>["budgets"][number] | undefined; ym: string }) {
   const { transactions } = useModeData();
   const [value, setValue] = useState(pct ? String(pct) : "20");
   const showToast = useUI((s) => s.showToast);

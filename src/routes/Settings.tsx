@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Card } from "../components/ui";
 import { NewPasswordForm } from "../components/NewPasswordForm";
 import { WatchCard } from "../components/WatchCard";
+import { EmpresaCard } from "../components/EmpresaCard";
 import { Field, inputClass, PrimaryButton, SecondaryButton } from "../components/Sheet";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../store/auth";
@@ -78,6 +79,7 @@ export function Settings() {
             <select className={inputClass} value={startMode} onChange={(e) => setStartMode(e.target.value as Mode)}>
               <option value="pessoal">Pessoal</option>
               <option value="casa">Casa</option>
+              {profile?.empresaName && <option value="empresa">Empresa</option>}
             </select>
           </Field>
           <PrimaryButton type="submit" className="self-start">Salvar</PrimaryButton>
@@ -105,6 +107,7 @@ export function Settings() {
         <SecondaryButton type="button" onClick={() => void exportJson()}>Exportar arvia-backup.json</SecondaryButton>
         <p className="mt-2 text-sm text-muted">O backup inclui tudo o que você enxerga: seus dados pessoais e os da casa.</p>
       </Card>
+      <EmpresaCard />
       <PasswordCard />
       <PushCard />
       <WatchCard />

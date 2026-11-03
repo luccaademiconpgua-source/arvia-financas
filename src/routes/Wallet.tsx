@@ -12,7 +12,7 @@ import { supabase } from "../lib/supabase";
 import { adjustBalance } from "../store/actions";
 import { useRefresh } from "../store/refresh";
 import { useUI } from "../store/ui";
-import type { Account } from "../types";
+import type { Account, Mode } from "../types";
 
 const TYPE_LABEL = { corrente: "Conta corrente", digital: "Conta digital", dinheiro: "Dinheiro", investimento: "Investimento" } as const;
 
@@ -176,7 +176,7 @@ function CashRow({ account, balance }: { account: Account; balance: number }) {
   );
 }
 
-function NewCashAccount({ mode }: { mode: "pessoal" | "casa" }) {
+function NewCashAccount({ mode }: { mode: Mode }) {
   const [value, setValue] = useState("");
   const [error, setError] = useState("");
   const showToast = useUI((s) => s.showToast);

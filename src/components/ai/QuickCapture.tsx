@@ -34,6 +34,8 @@ export function QuickCapture() {
   const household = useAuth((s) => s.household);
   const pessoal = useScopeData("pessoal");
   const casa = useScopeData("casa", !!household);
+  const hasEmpresa = useAuth((s) => !!s.profile?.empresaName);
+  const empresa = useScopeData("empresa", hasEmpresa);
   const [stage, setStage] = useState<Stage>({ s: "idle" });
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState("");
@@ -47,7 +49,7 @@ export function QuickCapture() {
     return () => clearInterval(t);
   }, [stage.s]);
 
-  const dataFor = (scope: Mode) => (scope === "casa" && household ? casa : pessoal);
+  const dataFor = (scope: Mode) => (scope === "casa" && household ? casa : scope === "empresa" && hasEmpresa ? empresa : pessoal);
 
   /** Lança tudo o que dá para lançar sem perguntar; o resto fica para a pessoa escolher conta ou cartão. */
   const apply = useCallback(
@@ -59,7 +61,7 @@ export function QuickCapture() {
           items.push({ kind: "task", a, id });
           continue;
         }
-        const scope: Mode = a.scope === "casa" && household ? "casa" : "pessoal";
+        const scope: Mode = a.scope === "casa" && household ? "casa" : a.scope === "empresa" && hasEmpresa ? "empresa" : "pessoal";
         const r = resolveTx(a, dataFor(scope));
         if (r.problems.length) {
           items.push({ kind: "tx-pending", a, scope, problems: r.problems });
@@ -76,7 +78,7 @@ export function QuickCapture() {
       setStage({ s: "done", heard, items, missing });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [household, pessoal, casa],
+    [household, hasEmpresa, pessoal, casa, empresa],
   );
 
   async function run(input: { audio: string; mime: string } | { text: string }) {
@@ -244,7 +246,7 @@ function ItemCard({
   const a = it.a;
   const title = `${a.type === "receita" ? "Receita" : "Despesa"} de ${formatBrl(a.amount_cents)}`;
   const how = a.installments ? `${a.installments}x no cartão` : a.card || a.payment === "credito" ? `cartão${a.card ? ` ${a.card}` : ""}` : `${PAY[a.payment]}${a.account ? ` na ${a.account}` : ""}`;
-  const detail = [a.description, how, it.scope === "casa" ? "Casa" : "Pessoal", dayLabel(a.date)].join(", ");
+  const detail = [a.description, how, it.scope === "casa" ? "Casa" : it.scope === "empresa" ? "Empresa" : "Pessoal", dayLabel(a.date)].join(", ");
 
   if (it.kind === "tx-pending") {
     // sem cartão cadastrado, oferece as contas (lança como débito)

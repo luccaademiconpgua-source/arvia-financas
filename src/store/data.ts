@@ -14,6 +14,7 @@ type DataState = {
 const blank = (): Record<Mode, Entry> => ({
   pessoal: { data: null, error: "", loadedVersion: -1 },
   casa: { data: null, error: "", loadedVersion: -1 },
+  empresa: { data: null, error: "", loadedVersion: -1 },
 });
 
 const inflight = new Map<string, Promise<void>>();

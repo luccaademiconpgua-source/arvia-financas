@@ -181,7 +181,7 @@ O que você faz:
 5. Quando a pessoa contar um gasto ou recebimento ("gastei 45 no mercado no pix", "recebi 2 mil de comissão", "paguei a luz 180"), crie uma ação "transaction".
    - amount em reais (número). type "despesa" ou "receita". category: o nome EXATO de uma categoria dos DADOS do mesmo tipo (escolha a mais adequada). payment: pix, dinheiro, debito ou credito.
    - account: nome exato de uma conta dos DADOS se a pessoa citar ou se der para deduzir; card: nome exato do cartão se for no crédito. Se for no crédito parcelado, installments com o número de parcelas.
-   - scope: "casa" se for despesa da casa (mercado da casa, contas da casa, carro da família) e a pessoa tiver casa; senão "pessoal".
+   - scope: "casa" se for despesa da casa (mercado da casa, contas da casa, carro da família) e a pessoa tiver casa; "empresa" se for da empresa (comissão, imposto, DAS, contador, anúncios, ferramenta de trabalho) e tem_empresa for true; senão "pessoal".
    - date no formato AAAA-MM-DD (hoje se não disser; "ontem" = um dia antes).
    - Se faltar o valor, NÃO crie a ação: pergunte o valor.
 6. Quando for algo a fazer, compromisso ou lembrete ("dentista quinta 15h", "pagar IPVA até sexta", "ligar pro cliente amanhã"), crie uma ação "task" com title, date (AAAA-MM-DD ou null), time (HH:MM ou null), priority (baixa, normal ou alta).
@@ -211,7 +211,7 @@ Regras:
 - description: curta e útil, com o nome do lugar se falado ("Padaria", "Posto Shell", "Comissão Ademicon").
 - payment: pix, dinheiro, debito ou credito. Sem informação: pix. "no cartão" sem dizer débito = credito.
 - account: nome exato da conta citada ("no Nubank", "pelo C6"); card: nome exato do cartão se for crédito; installments se falar "em 3x".
-- scope: "casa" se for gasto da casa (mercado, contas da casa, carro, feira) e tem_casa for true; senão "pessoal".
+- scope: "casa" se for gasto da casa (mercado, contas da casa, carro, feira) e tem_casa for true; "empresa" se for da empresa (comissão, imposto, DAS, contador, anúncios, ferramenta de trabalho, gasto pago pela conta da empresa) e tem_empresa for true; senão "pessoal". Use as categorias do mesmo escopo.
 - date AAAA-MM-DD: hoje, salvo "ontem", "anteontem", "sexta passada", "dia 10".
 - Compromissos e lembretes ("dentista amanhã 15h") viram tarefa.
 - Se faltar o valor de um gasto, NÃO crie a transação: coloque a frase em "missing".
@@ -238,7 +238,7 @@ function cleanActions(raw: unknown) {
         account: x.account ? String(x.account).slice(0, 60) : null,
         card: x.card ? String(x.card).slice(0, 60) : null,
         installments: Number(x.installments) >= 2 && Number(x.installments) <= 48 ? Math.round(Number(x.installments)) : null,
-        scope: x.scope === "casa" ? "casa" : "pessoal",
+        scope: x.scope === "casa" ? "casa" : x.scope === "empresa" ? "empresa" : "pessoal",
         date: iso.test(String(x.date)) ? String(x.date) : todayBR().date,
       }];
     }
@@ -280,7 +280,8 @@ const PAYW: Record<string, string> = { pix: "Pix", dinheiro: "dinheiro", debito:
 
 /** Liga o que a IA entendeu aos cadastros. No relógio não dá para perguntar: usa o mais provável. */
 function resolveWatchTx(a: Record<string, unknown>, cat: Catalog) {
-  const scope = a.scope === "casa" && cat.household ? "casa" : "pessoal";
+  const hasEmpresa = cat.categories.some((c) => c.scope === "empresa");
+  const scope = a.scope === "casa" && cat.household ? "casa" : a.scope === "empresa" && hasEmpresa ? "empresa" : "pessoal";
   const type = a.type === "receita" ? "receita" : "despesa";
   const cats = cat.categories.filter((c) => c.scope === scope && c.kind === type);
   const accs = cat.accounts.filter((c) => c.scope === scope);
@@ -328,7 +329,7 @@ async function handleWatch(admin: ReturnType<typeof createClient>, uid: string, 
 
   const { data: ctx } = await admin.rpc("assistant_context", { p_owner: uid });
   const c = (ctx ?? {}) as Record<string, unknown>;
-  const slim = { tem_casa: c.tem_casa, categorias: c.categorias, contas: c.contas, cartoes: c.cartoes, ultimos_lancamentos: c.ultimos_lancamentos };
+  const slim = { tem_casa: c.tem_casa, tem_empresa: c.tem_empresa, categorias: c.categorias, contas: c.contas, cartoes: c.cartoes, ultimos_lancamentos: c.ultimos_lancamentos };
   const r = await llm(keys, captureSystem(slim), [{ role: "user", content: text }], true);
   let parsed: { missing?: unknown } = {};
   try {
@@ -372,7 +373,7 @@ async function handleWatch(admin: ReturnType<typeof createClient>, uid: string, 
     }
     (tx.installments ? groupIds : txIds).push(String(id));
     const onde = tx.card_name ? `no cartão ${tx.card_name}${tx.installments ? ` em ${tx.installments} vezes` : ""}` : `${PAYW[tx.payment] ?? tx.payment}${tx.account_name ? ` na ${tx.account_name}` : ""}`;
-    said_parts.push(`${tx.type === "receita" ? "receita" : "despesa"} de ${brl(tx.amount_cents)} em ${tx.category_name ?? "sem categoria"}, ${onde}${tx.scope === "casa" ? ", na Casa" : ""}`);
+    said_parts.push(`${tx.type === "receita" ? "receita" : "despesa"} de ${brl(tx.amount_cents)} em ${tx.category_name ?? "sem categoria"}, ${onde}${tx.scope === "casa" ? ", na Casa" : tx.scope === "empresa" ? ", na Empresa" : ""}`);
   }
   if (txIds.length || groupIds.length || taskIds.length) {
     await admin.from("watch_events").insert({ owner_id: uid, said: text, tx_ids: txIds, group_ids: groupIds, task_ids: taskIds });
@@ -468,7 +469,7 @@ Deno.serve(async (req) => {
       const { data: ctx, error: cerr } = await admin.rpc("assistant_context", { p_owner: uid });
       if (cerr) return json({ error: "Não consegui ler seus dados agora." }, 500);
       const c = ctx as Record<string, unknown>;
-      const slim = { tem_casa: c.tem_casa, categorias: c.categorias, contas: c.contas, cartoes: c.cartoes, ultimos_lancamentos: c.ultimos_lancamentos };
+      const slim = { tem_casa: c.tem_casa, tem_empresa: c.tem_empresa, categorias: c.categorias, contas: c.contas, cartoes: c.cartoes, ultimos_lancamentos: c.ultimos_lancamentos };
       const r = await llm(keys, captureSystem(slim), [{ role: "user", content: text }], true);
       const parsed = parseJson(r.text) as { missing?: unknown };
       const actions = cleanActions(parsed).filter((a) => a.kind !== "shopping");

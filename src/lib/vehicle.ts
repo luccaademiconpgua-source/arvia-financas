@@ -5,7 +5,7 @@ export type VehicleFuel = "flex" | Fuel;
 
 export type Vehicle = {
   id: string;
-  scope: "pessoal" | "casa";
+  scope: "pessoal" | "casa" | "empresa";
   name: string;
   plate: string | null;
   fuel: VehicleFuel;

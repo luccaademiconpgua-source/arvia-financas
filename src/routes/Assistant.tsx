@@ -49,6 +49,8 @@ export function Assistant() {
   const name = useAuth((s) => s.profile?.name ?? "");
   const pessoal = useScopeData("pessoal");
   const casa = useScopeData("casa", !!household);
+  const hasEmpresa = useAuth((s) => !!s.profile?.empresaName);
+  const empresa = useScopeData("empresa", hasEmpresa);
   const showToast = useUI((s) => s.showToast);
   const [st, setSt] = useState<AiStatus | null>(null);
   const [msgs, setMsgs] = useState<Msg[] | null>(null);
@@ -148,8 +150,8 @@ export function Assistant() {
   async function confirm(msg: Msg, idx: number, a: AiAction) {
     try {
       if (a.kind === "transaction") {
-        const scope: Mode = a.scope === "casa" && household ? "casa" : "pessoal";
-        const d = scope === "casa" ? casa : pessoal;
+        const scope: Mode = a.scope === "casa" && household ? "casa" : a.scope === "empresa" && hasEmpresa ? "empresa" : "pessoal";
+        const d = scope === "casa" ? casa : scope === "empresa" ? empresa : pessoal;
         const r = resolveTx(a, d);
         if (r.problems.length) throw new Error(`${r.problems.join(" ")} Lance pela tela de transações.`);
         if (r.cardId && r.installments) {
@@ -278,7 +280,7 @@ function ActionCard({ a, state, onConfirm, onDiscard }: { a: AiAction; state: Ac
   let detail = "";
   if (a.kind === "transaction") {
     title = `${a.type === "receita" ? "Receita" : "Despesa"} de ${formatBrl(a.amount_cents)}`;
-    detail = [a.description, a.category, a.installments ? `${a.installments}x no ${a.card ?? "cartão"}` : a.card ? `cartão ${a.card}` : `${PAY[a.payment]}${a.account ? ` na ${a.account}` : ""}`, a.scope === "casa" ? "Casa" : "Pessoal", format(parseISO(a.date), "dd/MM")].filter(Boolean).join(", ");
+    detail = [a.description, a.category, a.installments ? `${a.installments}x no ${a.card ?? "cartão"}` : a.card ? `cartão ${a.card}` : `${PAY[a.payment]}${a.account ? ` na ${a.account}` : ""}`, a.scope === "casa" ? "Casa" : a.scope === "empresa" ? "Empresa" : "Pessoal", format(parseISO(a.date), "dd/MM")].filter(Boolean).join(", ");
   } else if (a.kind === "task") {
     icon = <CalendarPlus size={18} aria-hidden="true" />;
     title = a.title;

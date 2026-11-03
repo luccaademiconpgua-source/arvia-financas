@@ -136,7 +136,7 @@ export type TxAction = {
   account: string | null;
   card: string | null;
   installments: number | null;
-  scope: "pessoal" | "casa";
+  scope: "pessoal" | "casa" | "empresa";
   date: string;
 };
 export type TaskAction = { kind: "task"; title: string; date: string | null; time: string | null; priority: "baixa" | "normal" | "alta" };

@@ -1,4 +1,5 @@
-export type Mode = "pessoal" | "casa";
+/** pessoal e empresa: só o dono vê. casa: compartilhado com quem mora junto. */
+export type Mode = "pessoal" | "casa" | "empresa";
 
 export type Account = {
   id: string;

@@ -2,7 +2,7 @@ import type { Card, Transaction } from "../types";
 
 export type Recurrence = {
   id: string;
-  scope: "pessoal" | "casa";
+  scope: "pessoal" | "casa" | "empresa";
   type: "receita" | "despesa";
   description: string;
   amountCents: number;
