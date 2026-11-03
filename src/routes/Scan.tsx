@@ -15,6 +15,10 @@ import { supabase } from "../lib/supabase";
 import { useRefresh } from "../store/refresh";
 import { useUI } from "../store/ui";
 import type { Transaction } from "../types";
+import { fuelFromNote } from "../lib/fuel";
+import { useVehicles } from "../services/vehicles";
+import { useAuth } from "../store/auth";
+import { applyFuelChoice, FuelVehiclePicker, TERCEIRO, type FuelChoice } from "../components/vehicles/FuelVehiclePicker";
 
 type Tab = "camera" | "foto" | "url";
 const tabs: Array<{ value: Tab; label: string }> = [
@@ -209,7 +213,12 @@ function Review({ url, nfce, onCancel }: { url: string; nfce: NfceResult; onCanc
   const { mode, accounts, cards, categories } = useModeData();
   const navigate = useNavigate();
   const showToast = useUI((s) => s.showToast);
-  const suggested = suggestCategoryName(nfce.storeName, mode);
+  const fuel = fuelFromNote(nfce.items);
+  const household = useAuth((s) => s.household);
+  const { vehicles } = useVehicles(household ? "casa" : mode);
+  const [fuelChoice, setFuelChoice] = useState<FuelChoice>({ target: null, km: "", fullTank: true });
+  const askVehicle = !!fuel && vehicles.length > 0;
+  const suggested = fuel ? "Gasolina" : suggestCategoryName(nfce.storeName, mode);
   const cats = categories.filter((c) => c.kind === "despesa");
   const [categoryId, setCategoryId] = useState("");
   const [payment, setPayment] = useState<Transaction["payment"]>(nfce.payment === "desconhecido" ? "pix" : nfce.payment);
@@ -227,6 +236,7 @@ function Review({ url, nfce, onCancel }: { url: string; nfce: NfceResult; onCanc
     setError("");
     const id = destSel.slice(2);
     if (!id) return setError("Escolha a conta ou o cartão.");
+    if (askVehicle && !fuelChoice.target) return setError(vehicles.length === 1 ? "Diga se o combustível foi para o seu veículo ou de terceiro." : "Escolha em qual veículo foi o abastecimento.");
     try {
       const { data: prev } = await supabase.from("nfce_scans").select("id").eq("url", url).limit(1);
       let scanId = prev?.[0]?.id as string | undefined;
@@ -266,9 +276,13 @@ function Review({ url, nfce, onCancel }: { url: string; nfce: NfceResult; onCanc
         nfceId: scanId,
       });
       await supabase.from("nfce_scans").update({ status: "lancada", transaction_id: txId }).eq("id", scanId);
+      if (fuel && askVehicle) {
+        await applyFuelChoice(fuelChoice, fuel, { nfceId: scanId, transactionId: txId, date, paidCents: nfce.totalCents, store: nfce.storeName });
+      }
       useRefresh.getState().bump();
-      showToast("Despesa lançada");
-      navigate("/transacoes");
+      const ownVehicle = fuel && askVehicle && fuelChoice.target !== TERCEIRO;
+      showToast(ownVehicle ? "Despesa e abastecimento lançados" : "Despesa lançada");
+      navigate(ownVehicle ? "/veiculos" : "/transacoes");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Não consegui lançar a despesa.");
     }
@@ -293,6 +307,11 @@ function Review({ url, nfce, onCancel }: { url: string; nfce: NfceResult; onCanc
           ))}
         </ul>
       </Card>
+      {fuel && (
+        <Card title="Abastecimento">
+          <FuelVehiclePicker info={fuel} vehicles={vehicles} value={fuelChoice} onChange={setFuelChoice} idPrefix="nota" />
+        </Card>
+      )}
       <Card title="Lançamento">
         <div className="flex flex-col gap-3">
           <Field label="Forma de pagamento">

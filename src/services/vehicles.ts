@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useRefresh } from "../store/refresh";
 import { addTransaction, deleteTransaction } from "../store/actions";
-import type { Mode, Transaction } from "../types";
+import type { Mode, NfceItem, Transaction } from "../types";
 import type { Fuel, Reminder, Vehicle, VehicleFuel, VehicleLog } from "../lib/vehicle";
 
 type Row = Record<string, unknown>;
@@ -33,6 +33,7 @@ const toLog = (r: Row): VehicleLog => ({
   place: str(r["place"]),
   amountCents: Number(r["amount_cents"] ?? 0),
   transactionId: str(r["transaction_id"]),
+  nfceId: str(r["nfce_id"]),
 });
 
 const toReminder = (r: Row): Reminder => ({
@@ -135,6 +136,45 @@ export async function addLog(mode: Mode, log: NewLog, pay: Payment | null, vehic
     throw new Error(res.error.message);
   }
   bump();
+}
+
+/** Abastecimento vindo da nota do posto: liga à despesa que a nota já lançou (não lança de novo). */
+export async function addFuelFromNote(p: {
+  vehicleId: string; nfceId: string; transactionId: string | null; date: string; liters: number; pricePerLiterCents: number;
+  fuel: Fuel | null; amountCents: number; odometer: number | null; fullTank: boolean; place: string;
+}) {
+  check(await supabase.from("vehicle_logs").insert({
+    vehicle_id: p.vehicleId, kind: "abastecimento", date: p.date, odometer: p.odometer, liters: p.liters,
+    price_per_liter_cents: p.pricePerLiterCents, fuel: p.fuel, full_tank: p.fullTank, place: p.place.slice(0, 60),
+    amount_cents: p.amountCents, transaction_id: p.transactionId, nfce_id: p.nfceId,
+  }));
+  bump();
+}
+
+/** Nota de posto de veículo de terceiro: fica só a despesa. */
+export async function markFuelThirdParty(nfceId: string, transactionId: string | null) {
+  check(await supabase.from("nfce_scans").update({ fuel_third_party: true }).eq("id", nfceId));
+  if (transactionId) {
+    const { data } = await supabase.from("transactions").select("description").eq("id", transactionId).single();
+    const d = String(data?.description ?? "Combustível");
+    if (!/terceiro/i.test(d)) await supabase.from("transactions").update({ description: `${d.slice(0, 66)} (terceiro)` }).eq("id", transactionId);
+  }
+  bump();
+}
+
+export type PendingFuelNote = { id: string; store: string; date: string; paidCents: number; transactionId: string | null; items: NfceItem[] };
+
+/** Notas de posto já lançadas que ainda não viraram abastecimento nem foram marcadas como de terceiro. */
+export async function pendingFuelNotes(): Promise<PendingFuelNote[]> {
+  const since = new Date(Date.now() - 120 * 86400000).toISOString();
+  const [{ data: scans }, { data: logs }] = await Promise.all([
+    supabase.from("nfce_scans").select("id,store_name,issued_at,total_cents,transaction_id,items").eq("status", "lancada").eq("fuel_third_party", false).gte("issued_at", since).order("issued_at", { ascending: false }),
+    supabase.from("vehicle_logs").select("nfce_id").not("nfce_id", "is", null),
+  ]);
+  const done = new Set((logs ?? []).map((l) => String(l.nfce_id)));
+  return (scans ?? [])
+    .filter((s) => !done.has(String(s.id)))
+    .map((s) => ({ id: String(s.id), store: String(s.store_name), date: String(s.issued_at).slice(0, 10), paidCents: Number(s.total_cents), transactionId: (s.transaction_id as string | null) ?? null, items: (s.items ?? []) as NfceItem[] }));
 }
 
 export async function deleteLog(log: VehicleLog, alsoTransaction: boolean) {

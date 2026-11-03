@@ -27,6 +27,8 @@ export type VehicleLog = {
   place: string | null;
   amountCents: number;
   transactionId: string | null;
+  /** nota fiscal do posto que gerou este abastecimento */
+  nfceId?: string | null;
 };
 
 export type Reminder = {

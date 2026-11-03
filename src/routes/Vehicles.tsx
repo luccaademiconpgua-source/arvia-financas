@@ -7,6 +7,7 @@ import { GlassStage } from "../components/dashboard/GlassStage";
 import { ConsumptionChart, MonthlyCostChart } from "../components/vehicles/VehicleCharts";
 import { LogSheet, NewVehicleSheet, ReminderSheet, parseDecimal } from "../components/vehicles/VehicleSheets";
 import { useModeData } from "../hooks/useModeData";
+import { PendingFuelNotes } from "../components/vehicles/FuelVehiclePicker";
 import { todayIso } from "../lib/clock";
 import { formatBrl } from "../lib/money";
 import {
@@ -75,6 +76,7 @@ export function Vehicles() {
 
   return (
     <div className="flex flex-col gap-4">
+      <PendingFuelNotes vehicles={vehicles} />
       <div className="flex flex-wrap items-center gap-2">
         {vehicles.map((v) => (
           <button key={v.id} type="button" onClick={() => setSel(v.id)} aria-pressed={v.id === vehicle.id} className={`flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-medium ${v.id === vehicle.id ? "border-brand bg-brand text-white" : "border-line bg-card"}`}>
