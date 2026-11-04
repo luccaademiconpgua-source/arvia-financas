@@ -9,7 +9,7 @@
 //   chat        {messages:[{role,content}]} -> {reply, actions:[...]}         (assistente com os dados da pessoa)
 //   task        {text}                   -> {task:{title,date,time,priority}} (agenda por texto livre)
 //   capture     {audio,mime} ou {text}   -> {text, actions:[transaction|task], missing:[...]} (lançamento rápido por voz)
-//   relógio     header x-arvia-chave (ou "chave" no corpo) + {texto}  -> texto para o relógio falar
+//   relógio     ?chave= no endereço (ou header x-arvia-chave) + {texto}  -> texto para o relógio falar
 //               lança direto o que for gasto/recebimento/compromisso, responde perguntas e entende "desfazer"
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -290,11 +290,15 @@ function resolveWatchTx(a: Record<string, unknown>, cat: Catalog) {
   let card: Crd | undefined;
   let account: Acc | undefined;
   let payment = String(a.payment ?? "pix");
+  let named: Acc | undefined;
+  let missingAccount: string | null = null;
   if (type === "despesa" && (payment === "credito" || a.card)) card = pick(cards, a.card, (c) => c.label) ?? cards[0];
   if (!card) {
     if (payment === "credito") payment = "debito";
-    account = pick(accs, a.account, (x) => x.name) ?? (payment === "dinheiro" ? accs.find((x) => x.type === "dinheiro") : undefined)
-      ?? accs.find((x) => x.type !== "dinheiro" && x.type !== "investimento") ?? accs[0];
+    named = payment === "dinheiro" ? undefined : pick(accs, a.account, (x) => x.name);
+    if (a.account && !named && payment !== "dinheiro") missingAccount = String(a.account);
+    account = named ?? (payment === "dinheiro" ? accs.find((x) => x.type === "dinheiro") : undefined)
+      ?? (payment === "dinheiro" ? undefined : accs.find((x) => x.type !== "dinheiro" && x.type !== "investimento") ?? accs[0]);
   }
   return {
     scope, type,
@@ -306,6 +310,7 @@ function resolveWatchTx(a: Record<string, unknown>, cat: Catalog) {
     account_id: account?.id ?? null, account_name: account?.name ?? null,
     card_id: card?.id ?? null, card_name: card?.label ?? null,
     installments: card && Number(a.installments) >= 2 ? Number(a.installments) : null,
+    missing_account: missingAccount,
   };
 }
 
@@ -362,6 +367,15 @@ async function handleWatch(admin: ReturnType<typeof createClient>, uid: string, 
       continue;
     }
     const tx = resolveWatchTx(a, cat);
+    if (tx.payment === "dinheiro" && !tx.account_id) {
+      // sem conta Dinheiro: cria a Carteira em vez de cair no banco
+      const { data: cash } = await admin.rpc("watch_cash_account", { p_owner: uid, p_scope: tx.scope });
+      if (cash) {
+        tx.account_id = String(cash);
+        tx.account_name = "Carteira";
+        cat.accounts.push({ id: String(cash), name: "Carteira", type: "dinheiro", scope: tx.scope });
+      }
+    }
     if (!tx.account_id && !tx.card_id) {
       said_parts.push(`não lancei ${brl(tx.amount_cents)} de ${tx.description} porque não há conta cadastrada`);
       continue;
@@ -372,8 +386,8 @@ async function handleWatch(admin: ReturnType<typeof createClient>, uid: string, 
       continue;
     }
     (tx.installments ? groupIds : txIds).push(String(id));
-    const onde = tx.card_name ? `no cartão ${tx.card_name}${tx.installments ? ` em ${tx.installments} vezes` : ""}` : `${PAYW[tx.payment] ?? tx.payment}${tx.account_name ? ` na ${tx.account_name}` : ""}`;
-    said_parts.push(`${tx.type === "receita" ? "receita" : "despesa"} de ${brl(tx.amount_cents)} em ${tx.category_name ?? "sem categoria"}, ${onde}${tx.scope === "casa" ? ", na Casa" : tx.scope === "empresa" ? ", na Empresa" : ""}`);
+    const onde = tx.card_name ? `no cartão ${tx.card_name}${tx.installments ? ` em ${tx.installments} vezes` : ""}` : tx.payment === "dinheiro" ? `em dinheiro, na ${tx.account_name ?? "Carteira"}` : `${PAYW[tx.payment] ?? tx.payment}${tx.account_name ? ` na ${tx.account_name}` : ""}`;
+    said_parts.push(`${tx.type === "receita" ? "receita" : "despesa"} de ${brl(tx.amount_cents)} em ${tx.category_name ?? "sem categoria"}, ${onde}${tx.scope === "casa" ? ", na Casa" : tx.scope === "empresa" ? ", na Empresa" : ""}${tx.missing_account ? ` (não achei a conta ${tx.missing_account} no app)` : ""}`);
   }
   if (txIds.length || groupIds.length || taskIds.length) {
     await admin.from("watch_events").insert({ owner_id: uid, said: text, tx_ids: txIds, group_ids: groupIds, task_ids: taskIds });
