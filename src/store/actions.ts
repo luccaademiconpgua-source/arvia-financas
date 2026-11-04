@@ -105,6 +105,17 @@ export async function updateAccount(id: string, patch: { name: string; instituti
   useRefresh.getState().bump();
 }
 
+export async function updateCard(id: string, patch: { label: string; last4: string; brand: string; limit_cents: number | null; due_day: number }): Promise<void> {
+  const { error } = await supabase.from("cards").update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
+  useRefresh.getState().bump();
+}
+
+/** Apaga o cartão com as compras e faturas dele. */
+export async function deleteCard(id: string): Promise<number> {
+  return rpc<number>("delete_card", { p_id: id });
+}
+
 /** Leva a conta (com os lançamentos) entre Pessoal e Empresa. */
 export async function moveAccountScope(id: string, scope: "pessoal" | "empresa"): Promise<number> {
   return rpc<number>("move_to_scope", { p_kind: "account", p_id: id, p_scope: scope });

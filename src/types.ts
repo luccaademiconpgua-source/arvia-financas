@@ -34,6 +34,8 @@ export type Card = {
   limitCents: number | null;
   dueDay: number;
   invoices: CardInvoice[];
+  /** veio do Open Finance */
+  fromBank?: boolean;
 };
 
 export type Category = {

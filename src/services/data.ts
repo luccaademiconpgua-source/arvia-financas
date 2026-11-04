@@ -37,6 +37,7 @@ const toCard = (r: Row, mode: Mode): Card => ({
   limitCents: r["limit_cents"] === null || r["limit_cents"] === undefined ? null : int(r["limit_cents"]),
   dueDay: int(r["due_day"]),
   invoices: ((r["card_invoices"] as Row[] | null) ?? []).map(toInvoice),
+  ...(opt(r["external_id"]) ? { fromBank: true } : {}),
 });
 
 const toTx = (r: Row, mode: Mode): Transaction => ({
