@@ -99,6 +99,17 @@ export async function deleteTransaction(id: string): Promise<void> {
   await rpc<null>("delete_transaction", { p_id: id });
 }
 
+export async function updateAccount(id: string, patch: { name: string; institution: string | null; type: string }): Promise<void> {
+  const { error } = await supabase.from("accounts").update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
+  useRefresh.getState().bump();
+}
+
+/** Apaga a conta. Com `moveTo`, os lançamentos passam para essa conta; sem, são apagados junto. */
+export async function deleteAccount(id: string, moveTo: string | null): Promise<number> {
+  return rpc<number>("delete_account", { p_id: id, p_move_to: moveTo });
+}
+
 export async function adjustBalance(accountId: string, newBalanceCents: number): Promise<void> {
   await rpc<null>("adjust_balance", { p_account_id: accountId, p_new_balance_cents: newBalanceCents, p_date: todayIso() });
 }
