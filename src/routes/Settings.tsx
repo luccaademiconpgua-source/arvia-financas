@@ -93,6 +93,7 @@ export function Settings() {
         </form>
         <p className="mt-3 text-sm text-muted">Conta: {session?.user.email}</p>
       </Card>
+      <EmpresaCard />
       <Card title="Casa">
         {household ? (
           <>
@@ -114,7 +115,6 @@ export function Settings() {
         <SecondaryButton type="button" onClick={() => void exportJson()}>Exportar arvia-backup.json</SecondaryButton>
         <p className="mt-2 text-sm text-muted">O backup inclui tudo o que você enxerga: seus dados pessoais e os da casa.</p>
       </Card>
-      <EmpresaCard />
       <PasswordCard />
       <PushCard />
       <WatchCard />

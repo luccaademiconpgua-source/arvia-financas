@@ -5,7 +5,8 @@ import { useModeData } from "../hooks/useModeData";
 import { accountBalanceCents, totalBalanceCents } from "../lib/calc";
 import { formatBrl, parseBrlToCents } from "../lib/money";
 import { NewAccountSheet } from "../components/CreateSheets";
-import { adjustBalance, deleteAccount, updateAccount } from "../store/actions";
+import { adjustBalance, deleteAccount, moveAccountScope, updateAccount } from "../store/actions";
+import { useAuth } from "../store/auth";
 import { useUI } from "../store/ui";
 import type { Account } from "../types";
 
@@ -112,6 +113,9 @@ function EditSheet({ account, others, txCount, onClose }: { account: Account; ot
   const [moveTo, setMoveTo] = useState(others[0]?.id ?? "");
   const [keep, setKeep] = useState<"mover" | "apagar">(txCount > 0 && others.length > 0 ? "mover" : "apagar");
   const fromBank = !!account.openFinance && account.openFinance.status !== "demo";
+  const hasEmpresa = useAuth((s) => !!s.profile?.empresaName);
+  const canMove = hasEmpresa && (account.mode === "pessoal" || account.mode === "empresa");
+  const [space, setSpace] = useState<"pessoal" | "empresa">(account.mode === "empresa" ? "empresa" : "pessoal");
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -119,7 +123,12 @@ function EditSheet({ account, others, txCount, onClose }: { account: Account; ot
     setBusy(true);
     try {
       await updateAccount(account.id, { name: name.trim(), institution: institution.trim() || null, type });
-      showToast("Conta atualizada");
+      if (canMove && space !== account.mode) {
+        await moveAccountScope(account.id, space);
+        showToast(`${name.trim()} foi para ${space === "empresa" ? "a Empresa" : "o Pessoal"}`);
+      } else {
+        showToast("Conta atualizada");
+      }
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não consegui salvar.");
@@ -159,6 +168,14 @@ function EditSheet({ account, others, txCount, onClose }: { account: Account; ot
               <option value="investimento">Investimento</option>
             </select>
           </Field>
+          {canMove && (
+            <Field label="Esta conta é de">
+              <select className={inputClass} value={space} onChange={(e) => setSpace(e.target.value as "pessoal" | "empresa")}>
+                <option value="pessoal">Pessoa física (Pessoal)</option>
+                <option value="empresa">Empresa</option>
+              </select>
+            </Field>
+          )}
           {fromBank && <p className="text-xs text-muted">Esta conta vem do Open Finance. O nome que você der aqui continua mesmo depois das próximas sincronizações.</p>}
           <div className="mt-1 flex gap-2">
             <PrimaryButton type="submit" disabled={busy} className="flex-1">Salvar</PrimaryButton>

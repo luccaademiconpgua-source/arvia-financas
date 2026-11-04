@@ -3,7 +3,8 @@ import { Card, Pill } from "../components/ui";
 import { Field, inputClass, PrimaryButton, SecondaryButton } from "../components/Sheet";
 import { useUI } from "../store/ui";
 import { ImportStatement } from "../components/ImportStatement";
-import { disconnect, friendlyError, getStatus, listItems, openWidget, removeCredentials, saveCredentials, saveItem, syncAll, type PluggyItem } from "../services/pluggy";
+import { disconnect, friendlyError, getStatus, listItems, moveItemScope, openWidget, removeCredentials, renameItem, saveCredentials, saveItem, syncAll, type PluggyItem } from "../services/pluggy";
+import { useAuth } from "../store/auth";
 
 function ago(iso: string | null) {
   if (!iso) return "ainda não sincronizou";
@@ -16,6 +17,7 @@ function ago(iso: string | null) {
 
 export function Connections() {
   const showToast = useUI((s) => s.showToast);
+  const hasEmpresa = useAuth((s) => !!s.profile?.empresaName);
   const [loading, setLoading] = useState(true);
   const [configured, setConfigured] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
@@ -117,23 +119,15 @@ export function Connections() {
           ) : (
             <ul className="flex flex-col divide-y divide-line">
               {items.map((it) => (
-                <li key={it.item_id} className="flex flex-wrap items-center justify-between gap-2 py-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{it.connector_name && !/meu\s*pluggy/i.test(it.connector_name) ? it.connector_name : "Banco (sincronize para ver o nome)"}</p>
-                    <p className="text-xs text-muted">
-                      {it.status === "ok" ? `Atualizado ${ago(it.last_sync_at)}` : (it.last_error ?? "Falha na leitura")}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Pill tone={it.status === "ok" ? "ok" : it.status === "expirada" ? "warn" : "danger"}>
-                      {it.status === "ok" ? "Conectado" : it.status === "expirada" ? "Reconectar" : "Erro"}
-                    </Pill>
-                    {it.status === "expirada" && (
-                      <SecondaryButton type="button" onClick={() => onConnect(it.item_id)}>Reconectar</SecondaryButton>
-                    )}
-                    <SecondaryButton type="button" disabled={!!busy} onClick={() => onRemoveItem(it.item_id)}>Remover</SecondaryButton>
-                  </div>
-                </li>
+                <ConnectionRow
+                  key={it.item_id}
+                  item={it}
+                  busy={!!busy}
+                  hasEmpresa={hasEmpresa}
+                  onReconnect={() => onConnect(it.item_id)}
+                  onRemove={() => onRemoveItem(it.item_id)}
+                  onChanged={() => void load()}
+                />
               ))}
             </ul>
           )}
@@ -213,5 +207,119 @@ function ItemIdForm({ busy, onSave }: { busy: boolean; onSave: (id: string) => v
         <SecondaryButton type="button" onClick={() => setOpen(false)}>Cancelar</SecondaryButton>
       </div>
     </div>
+  );
+}
+
+function ConnectionRow({ item: it, busy, hasEmpresa, onReconnect, onRemove, onChanged }: {
+  item: PluggyItem;
+  busy: boolean;
+  hasEmpresa: boolean;
+  onReconnect: () => void;
+  onRemove: () => void;
+  onChanged: () => void;
+}) {
+  const showToast = useUI((s) => s.showToast);
+  const auto = it.connector_name && !/meu\s*pluggy/i.test(it.connector_name) ? it.connector_name : "Banco";
+  const name = it.custom_name ?? auto;
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(name);
+  const [err, setErr] = useState("");
+  const [working, setWorking] = useState(false);
+  const info = it.accounts_info ?? [];
+  const contas = info.filter((a) => a.type === "conta");
+  const cartoes = info.filter((a) => a.type === "cartao");
+  const linked = it.accounts_info !== null;
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setWorking(true);
+    setErr("");
+    try {
+      await renameItem(it.item_id, draft);
+      showToast("Nome salvo nas contas desta conexão");
+      setEditing(false);
+      onChanged();
+    } catch (x) {
+      setErr(x instanceof Error ? x.message : "Não consegui renomear.");
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function move(scope: "pessoal" | "empresa") {
+    setWorking(true);
+    setErr("");
+    try {
+      const n = await moveItemScope(it.item_id, scope);
+      showToast(`${name} foi para ${scope === "empresa" ? "a Empresa" : "o Pessoal"}${n ? ` com ${n} lançamentos` : ""}`);
+      onChanged();
+    } catch (x) {
+      setErr(x instanceof Error ? x.message : "Não consegui mover.");
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  return (
+    <li className="flex flex-col gap-2 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium">{name}</p>
+          <p className="text-xs text-muted">
+            {it.status === "ok" ? `Atualizado ${ago(it.last_sync_at)}` : (it.last_error ?? "Falha na leitura")}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Pill tone={it.status === "ok" ? "ok" : it.status === "expirada" ? "warn" : "danger"}>
+            {it.status === "ok" ? "Conectado" : it.status === "expirada" ? "Reconectar" : "Erro"}
+          </Pill>
+          {it.status === "expirada" && <SecondaryButton type="button" onClick={onReconnect}>Reconectar</SecondaryButton>}
+          <SecondaryButton type="button" disabled={busy || working} onClick={() => { setDraft(name); setEditing((v) => !v); }}>Renomear</SecondaryButton>
+          <SecondaryButton type="button" disabled={busy || working} onClick={onRemove}>Remover</SecondaryButton>
+        </div>
+      </div>
+
+      {linked ? (
+        <p className="text-xs text-muted">
+          {info.length === 0
+            ? (it.last_error ?? "Nenhuma conta veio por esta conexão.")
+            : [
+                contas.length ? `${contas.length === 1 ? "Conta" : "Contas"}: ${contas.map((c) => c.name + (c.last4 ? ` final ${c.last4}` : "")).join(", ")}` : "",
+                cartoes.length ? `${cartoes.length === 1 ? "Cartão" : "Cartões"}: ${cartoes.map((c) => c.name + (c.last4 ? ` final ${c.last4}` : "")).join(", ")}` : "",
+              ].filter(Boolean).join(". ")}
+        </p>
+      ) : (
+        <p className="text-xs text-muted">Toque em Sincronizar agora para ver o que veio por esta conexão.</p>
+      )}
+
+      {hasEmpresa && (
+        <div className="flex flex-wrap items-center gap-2 text-sm" role="group" aria-label={`De quem é ${name}`}>
+          <span className="text-muted">É de:</span>
+          {(["pessoal", "empresa"] as const).map((sc) => (
+            <button
+              key={sc}
+              type="button"
+              aria-pressed={it.scope === sc}
+              disabled={working || busy || it.scope === sc || !linked}
+              onClick={() => void move(sc)}
+              className={`min-h-9 rounded-full border px-3 text-sm ${it.scope === sc ? "border-brand bg-brand text-white" : "border-line hover:bg-page"} disabled:cursor-default`}
+            >
+              {sc === "pessoal" ? "Pessoa física" : "Empresa"}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {editing && (
+        <form onSubmit={save} className="flex flex-wrap items-end gap-2" noValidate>
+          <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm">
+            <span className="text-muted">Nome desta conexão (vale para as contas dela)</span>
+            <input className={inputClass} maxLength={40} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Inter PJ" />
+          </label>
+          <PrimaryButton type="submit" disabled={working || !draft.trim()}>Salvar nome</PrimaryButton>
+        </form>
+      )}
+      {err && <p role="alert" className="text-sm text-danger">{err}</p>}
+    </li>
   );
 }

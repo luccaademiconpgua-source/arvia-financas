@@ -105,6 +105,11 @@ export async function updateAccount(id: string, patch: { name: string; instituti
   useRefresh.getState().bump();
 }
 
+/** Leva a conta (com os lançamentos) entre Pessoal e Empresa. */
+export async function moveAccountScope(id: string, scope: "pessoal" | "empresa"): Promise<number> {
+  return rpc<number>("move_to_scope", { p_kind: "account", p_id: id, p_scope: scope });
+}
+
 /** Apaga a conta. Com `moveTo`, os lançamentos passam para essa conta; sem, são apagados junto. */
 export async function deleteAccount(id: string, moveTo: string | null): Promise<number> {
   return rpc<number>("delete_account", { p_id: id, p_move_to: moveTo });

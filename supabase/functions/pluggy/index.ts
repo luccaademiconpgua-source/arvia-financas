@@ -196,6 +196,7 @@ async function syncOne(admin: any, apiKey: string, uid: string, itemId: string) 
     const full = await Promise.all(
       accs.map(async (a: any) => ({
         id: a.id,
+        item: itemId,
         type: a.type,
         subtype: a.subtype,
         name: a.marketingName || a.name,
@@ -219,7 +220,14 @@ async function syncOne(admin: any, apiKey: string, uid: string, itemId: string) 
     if (error) throw new Error(error.message);
     // pelo MeuPluggy cada banco é uma conexão: guardamos o nome do banco para a lista ficar legível
     const bank = label || String(accs[0]?.marketingName || accs[0]?.name || connector).slice(0, 60);
-    await mark({ status: "ok", last_error: null, last_sync_at: new Date().toISOString(), connector_name: bank });
+    // resumo do que o banco mandou nesta conexão (só os 4 últimos dígitos)
+    const info = accs.map((a: any) => ({
+      name: String(a.marketingName || a.name || "").slice(0, 60),
+      type: a.type === "CREDIT" ? "cartao" : "conta",
+      last4: String(a.number ?? "").replace(/\D/g, "").slice(-4) || null,
+    }));
+    const empty = accs.length === 0 ? `O banco ainda não mandou nenhuma conta por esta conexão (situação no Pluggy: ${String(item?.status ?? "desconhecida")}).` : null;
+    await mark({ status: "ok", last_error: empty, last_sync_at: new Date().toISOString(), connector_name: bank, accounts_info: info });
     return { item_id: itemId, connector: bank, status: "ok", ...data };
   } catch (e) {
     const msg = e instanceof HttpError ? e.message : `Falha ao gravar: ${e instanceof Error ? e.message.slice(0, 160) : "erro desconhecido"}`;

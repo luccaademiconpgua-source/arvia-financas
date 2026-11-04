@@ -74,7 +74,12 @@ export function Wallet() {
               return (
                 <li key={a.id} className="flex items-center justify-between gap-3 py-3">
                   <span className="min-w-0">
-                    <span className="block truncate font-medium">{a.name}</span>
+                    <span className="flex items-center gap-2">
+                      <span className="truncate font-medium">{a.name}</span>
+                      {a.openFinance && a.openFinance.status !== "demo" && (
+                        <Pill tone={a.openFinance.status === "conectada" ? "ok" : "warn"}>{a.openFinance.status === "conectada" ? "Open Finance" : "Reconectar"}</Pill>
+                      )}
+                    </span>
                     <span className="text-xs text-muted">
                       {TYPE_LABEL[a.type]}
                       {a.openFinance?.status === "conectada" ? ", saldo vindo do banco" : ""}
