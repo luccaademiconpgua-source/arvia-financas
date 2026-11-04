@@ -22,9 +22,67 @@
   --color-lagoon: #2dd4bf;
   --color-coral: #fb7185;
   --color-amber: #fbbf24;
+  --color-chart-income: #5eead4;
+  --color-chart-expense: #fda4af;
+  --color-pace: #e11d48;
+  --color-pace-prev: #94a3b8;
+  --color-cat-1: #0f766e;
+  --color-cat-2: #e11d48;
+  --color-cat-3: #d97706;
+  --color-cat-4: #4f46e5;
+  --color-cat-other: #94a3b8;
+  --color-tip: rgba(255, 255, 255, 0.92);
   --radius-card: 16px;
   --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.06), 0 8px 24px rgba(15, 23, 42, 0.04);
 }
+
+/* ---------- Tema escuro (padrão). Claro fica nos Ajustes ---------- */
+[data-theme="escuro"] {
+  color-scheme: dark;
+  --color-page: #09090b;
+  --color-card: #121214;
+  --color-line: #232327;
+  --color-brand: #f0294f;
+  --color-brand-dark: #0d0d0f;
+  --color-brand-hover: #ff4569;
+  --color-ink: #f4f4f5;
+  --color-muted: #8e8e98;
+  --color-income: #34d399;
+  --color-income-bg: rgba(52, 211, 153, 0.12);
+  --color-expense: #ff6b85;
+  --color-expense-bg: rgba(240, 41, 79, 0.14);
+  --color-warn: #fbbf24;
+  --color-warn-bg: rgba(251, 191, 36, 0.12);
+  --color-danger: #ff5c78;
+  --color-abyss: #0d0d0f;
+  --color-lagoon: #f0294f;
+  --color-coral: #7a1630;
+  --color-amber: #3b0d18;
+  --color-chart-income: #34d399;
+  --color-chart-expense: #f0294f;
+  --color-pace: #f0294f;
+  --color-pace-prev: #5b5b63;
+  --color-cat-1: #f0294f;
+  --color-cat-2: #f7a1b0;
+  --color-cat-3: #fbbf24;
+  --color-cat-4: #a1a1aa;
+  --color-cat-other: #3f3f46;
+  --color-tip: rgba(24, 24, 27, 0.94);
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.03) inset;
+}
+[data-theme="escuro"] .glass-stage {
+  background: radial-gradient(120% 140% at 0% 0%, #1c0b11 0%, #121214 45%, #0d0d0f 100%);
+  border: 1px solid var(--color-line);
+}
+[data-theme="escuro"] .glass-stage > .blob-a { opacity: 0.22; }
+[data-theme="escuro"] .glass-stage > .blob-b { opacity: 0.35; }
+[data-theme="escuro"] .glass {
+  background: rgba(255, 255, 255, 0.035);
+  border-color: rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+[data-theme="escuro"] .glass-tip { background: rgba(18, 18, 20, 0.94); }
+[data-theme="escuro"] .sidebar { border-right: 1px solid var(--color-line); }
 
 html,
 body {
@@ -103,7 +161,7 @@ body {
   backdrop-filter: blur(12px);
 }
 .light-tip {
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--color-tip);
   border: 1px solid var(--color-line);
   border-radius: 12px;
   padding: 8px 10px;

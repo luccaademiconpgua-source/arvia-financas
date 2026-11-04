@@ -102,6 +102,30 @@ export function summarize(txs: readonly Transaction[], range: Range, today: stri
 
 export type CashflowPoint = { ym: string; receitasCents: number; despesasCents: number };
 
+export type BalancePoint = { ym: string; cents: number };
+
+/**
+ * Saldo no fim de cada mês, voltando a partir do saldo de hoje: tira o que entrou e soma o que saiu
+ * nos meses seguintes. Só conta o que mexe no saldo (receita e despesa fora de cartão e de transferência).
+ */
+export function balanceHistory(txs: readonly Transaction[], currentCents: number, today: string, months = 12): BalancePoint[] {
+  const ym = today.slice(0, 7);
+  const net = (m: string) => inMonth(txs, m).reduce((s, t) => {
+    if (t.isTransfer || t.cardId) return s;
+    if (t.type === "receita") return s + t.amountCents;
+    if (t.type === "despesa") return s - t.amountCents;
+    return s;
+  }, 0);
+  const out: BalancePoint[] = [];
+  let bal = currentCents;
+  for (let i = 0; i < months; i++) {
+    const m = shiftMonth(ym, -i);
+    out.unshift({ ym: m, cents: bal });
+    bal -= net(m);
+  }
+  return out;
+}
+
 /** Seis meses terminando no mês de `today`, duas séries. */
 export function cashflow(txs: readonly Transaction[], today: string, months = 6): CashflowPoint[] {
   const ym = today.slice(0, 7);
@@ -163,7 +187,34 @@ export type HealthInput = {
   cardUsage: number | null;
 };
 
-export type Health = { score: number; status: "Bom" | "Atenção" | "Crítico"; tips: string[] };
+export type Tone = "ok" | "warn" | "danger";
+export type Pillar = { label: string; value: string; tone: Tone; hint: string };
+export type Health = { score: number; status: "Bom" | "Atenção" | "Crítico"; tips: string[]; pillars: Pillar[] };
+
+/** Três leituras simples que explicam a nota: quanto guarda, quanto deve, quanto gasta. */
+export function healthPillars(i: HealthInput): Pillar[] {
+  const rec = i.receitasCents;
+  const sobraRatio = rec > 0 ? i.sobrouCents / rec : i.sobrouCents >= 0 ? 0 : -1;
+  const reserva = i.emergencyTargetCents > 0 ? i.emergencySavedCents / i.emergencyTargetCents : 0;
+  const poup: Pillar = sobraRatio >= 0.1 || reserva >= 0.5
+    ? { label: "Poupança", value: "Boa", tone: "ok", hint: rec > 0 ? `sobrou ${Math.round(Math.max(0, sobraRatio) * 100)}% da receita` : "reserva em dia" }
+    : sobraRatio > 0
+      ? { label: "Poupança", value: "Regular", tone: "warn", hint: `sobrou ${Math.round(sobraRatio * 100)}% da receita` }
+      : { label: "Poupança", value: "Fraca", tone: "danger", hint: "nada sobrou este mês" };
+  const parc = rec > 0 ? i.parcelasCents / rec : i.parcelasCents > 0 ? 1 : 0;
+  const div: Pillar = i.hasOverdueInvoice || parc >= 0.4
+    ? { label: "Dívidas", value: "Alto", tone: "danger", hint: i.hasOverdueInvoice ? "fatura vencida" : `parcelas em ${Math.round(parc * 100)}% da receita` }
+    : parc >= 0.25 || (i.cardUsage ?? 0) >= 0.7
+      ? { label: "Dívidas", value: "Moderado", tone: "warn", hint: parc >= 0.25 ? `parcelas em ${Math.round(parc * 100)}% da receita` : `limite ${Math.round((i.cardUsage ?? 0) * 100)}% usado` }
+      : { label: "Dívidas", value: "Baixo", tone: "ok", hint: "parcelas sob controle" };
+  const gastoRatio = rec > 0 ? (rec - i.sobrouCents) / rec : 1;
+  const gas: Pillar = gastoRatio <= 0.8
+    ? { label: "Gastos", value: "No controle", tone: "ok", hint: `${Math.round(gastoRatio * 100)}% da receita` }
+    : gastoRatio <= 1
+      ? { label: "Gastos", value: "Atenção", tone: "warn", hint: `${Math.round(gastoRatio * 100)}% da receita` }
+      : { label: "Gastos", value: "Acima", tone: "danger", hint: rec > 0 ? `${Math.round(gastoRatio * 100)}% da receita` : "sem receita no mês" };
+  return [poup, div, gas];
+}
 
 /**
  * Nota de saúde, 0 a 100.
@@ -185,5 +236,5 @@ export function healthScore(i: HealthInput): Health {
   if (i.cardUsage !== null && i.cardUsage >= 0.5) tips.push(`Limite do cartão com ${Math.round(i.cardUsage * 100)}% de uso.`);
   if (i.emergencyTargetCents > 0 && reservaRatio < 0.1) tips.push("Reserva abaixo de 10% da meta.");
   if (parcelasRatio > 0.25) tips.push("Parcelas acima de 25% da receita.");
-  return { score, status: score >= 75 ? "Bom" : score >= 50 ? "Atenção" : "Crítico", tips: tips.slice(0, 3) };
+  return { score, status: score >= 75 ? "Bom" : score >= 50 ? "Atenção" : "Crítico", tips: tips.slice(0, 3), pillars: healthPillars(i) };
 }

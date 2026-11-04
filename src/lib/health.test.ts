@@ -75,3 +75,17 @@ describe("home do seed", () => {
     expect(c && worstInvoiceStatus(c)).toBe("vencida");
   });
 });
+
+describe("healthPillars", () => {
+  it("o seed mostra poupança boa e dívidas altas pela fatura vencida", () => {
+    const h = healthScore(base);
+    expect(h.pillars.map((p) => p.label)).toEqual(["Poupança", "Dívidas", "Gastos"]);
+    expect(h.pillars[0]!.tone).toBe("ok");
+    expect(h.pillars[1]!.value).toBe("Alto");
+  });
+  it("gastar mais do que entra deixa Gastos acima", () => {
+    const h = healthScore({ ...base, sobrouCents: -50000 });
+    expect(h.pillars[2]!.value).toBe("Acima");
+    expect(h.pillars[0]!.value).toBe("Fraca");
+  });
+});

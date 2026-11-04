@@ -5,8 +5,8 @@ import { Card } from "../ui";
 import { formatBrl } from "../../lib/money";
 import type { ConsumptionPoint, MonthRow } from "../../lib/vehicle";
 
-const GAS = "#D97706";
-const ETH = "#16A34A";
+const GAS = "var(--color-cat-3)";
+const ETH = "var(--color-income)";
 const kmFmt = new Intl.NumberFormat("pt-BR");
 const kml = (n: number) => n.toFixed(1).replace(".", ",");
 
@@ -23,12 +23,12 @@ export function ConsumptionChart({ points, average }: { points: ConsumptionPoint
           <div className="h-48" role="img" aria-label={`Consumo em km por litro nos últimos ${data.length} trechos`}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={data} margin={{ top: 12, right: 12, bottom: 0, left: 0 }}>
-                <CartesianGrid stroke="#E2E8F0" vertical={false} />
-                <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: "#64748B" }} />
-                <YAxis tickLine={false} axisLine={false} width={36} domain={["dataMin - 1", "dataMax + 1"]} tick={{ fontSize: 11, fill: "#64748B" }} tickFormatter={(v: number) => v.toFixed(0)} />
-                {average && <ReferenceLine y={average} stroke="#94A3B8" strokeDasharray="4 4" label={{ value: `média ${kml(average)}`, position: "insideTopRight", fill: "#64748B", fontSize: 11 }} />}
+                <CartesianGrid stroke="var(--color-line)" vertical={false} />
+                <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: "var(--color-muted)" }} />
+                <YAxis tickLine={false} axisLine={false} width={36} domain={["dataMin - 1", "dataMax + 1"]} tick={{ fontSize: 11, fill: "var(--color-muted)" }} tickFormatter={(v: number) => v.toFixed(0)} />
+                {average && <ReferenceLine y={average} stroke="var(--color-pace-prev)" strokeDasharray="4 4" label={{ value: `média ${kml(average)}`, position: "insideTopRight", fill: "var(--color-muted)", fontSize: 11 }} />}
                 <Tooltip
-                  cursor={{ stroke: "#94A3B8", strokeDasharray: "3 3" }}
+                  cursor={{ stroke: "var(--color-pace-prev)", strokeDasharray: "3 3" }}
                   content={({ active, payload }) => {
                     const p = payload?.[0]?.payload as (ConsumptionPoint & { label: string }) | undefined;
                     if (!active || !p) return null;
@@ -44,13 +44,13 @@ export function ConsumptionChart({ points, average }: { points: ConsumptionPoint
                 <Line
                   type="monotone"
                   dataKey="kmPerLiter"
-                  stroke="#0F766E"
+                  stroke="var(--color-cat-1)"
                   strokeWidth={2}
                   isAnimationActive={false}
                   dot={(props: { cx?: number; cy?: number; payload?: ConsumptionPoint; index?: number }) => (
-                    <circle key={props.index} cx={props.cx} cy={props.cy} r={5} fill={props.payload?.fuel === "etanol" ? ETH : GAS} stroke="#fff" strokeWidth={2} />
+                    <circle key={props.index} cx={props.cx} cy={props.cy} r={5} fill={props.payload?.fuel === "etanol" ? ETH : GAS} stroke="var(--color-card)" strokeWidth={2} />
                   )}
-                  activeDot={{ r: 7, stroke: "#fff", strokeWidth: 2 }}
+                  activeDot={{ r: 7, stroke: "var(--color-card)", strokeWidth: 2 }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -66,9 +66,9 @@ export function ConsumptionChart({ points, average }: { points: ConsumptionPoint
 }
 
 const SERIES = [
-  { key: "combustivel", label: "Combustível", color: "#D97706" },
-  { key: "servicos", label: "Serviços", color: "#0F766E" },
-  { key: "despesas", label: "Outras despesas", color: "#6366F1" },
+  { key: "combustivel", label: "Combustível", color: "var(--color-cat-3)" },
+  { key: "servicos", label: "Serviços", color: "var(--color-cat-1)" },
+  { key: "despesas", label: "Outras despesas", color: "var(--color-cat-4)" },
 ] as const;
 
 export function MonthlyCostChart({ rows }: { rows: MonthRow[] }) {
@@ -87,11 +87,11 @@ export function MonthlyCostChart({ rows }: { rows: MonthRow[] }) {
         <div className="h-52" role="img" aria-label="Gastos com o veículo nos últimos 6 meses, separados por tipo">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }} barCategoryGap="28%">
-              <CartesianGrid stroke="#E2E8F0" vertical={false} />
-              <XAxis dataKey="mes" tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: "#64748B" }} />
-              <YAxis tickLine={false} axisLine={false} width={44} tick={{ fontSize: 11, fill: "#64748B" }} tickFormatter={(v: number) => (v >= 100000 ? `${(v / 100000).toFixed(v % 100000 ? 1 : 0).replace(".", ",")}k` : String(Math.round(v / 100)))} />
+              <CartesianGrid stroke="var(--color-line)" vertical={false} />
+              <XAxis dataKey="mes" tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: "var(--color-muted)" }} />
+              <YAxis tickLine={false} axisLine={false} width={44} tick={{ fontSize: 11, fill: "var(--color-muted)" }} tickFormatter={(v: number) => (v >= 100000 ? `${(v / 100000).toFixed(v % 100000 ? 1 : 0).replace(".", ",")}k` : String(Math.round(v / 100)))} />
               <Tooltip
-                cursor={{ fill: "rgba(15,118,110,0.06)" }}
+                cursor={{ fill: "var(--color-page)" }}
                 content={({ active, payload }) => {
                   const r = payload?.[0]?.payload as (MonthRow & { mes: string }) | undefined;
                   if (!active || !r) return null;
@@ -106,7 +106,7 @@ export function MonthlyCostChart({ rows }: { rows: MonthRow[] }) {
                 }}
               />
               {SERIES.map((s, i) => (
-                <Bar key={s.key} dataKey={s.key} stackId="a" fill={s.color} stroke="#fff" strokeWidth={1} radius={i === SERIES.length - 1 ? [4, 4, 0, 0] : 0} maxBarSize={36} isAnimationActive={false} />
+                <Bar key={s.key} dataKey={s.key} stackId="a" fill={s.color} stroke="var(--color-card)" strokeWidth={1} radius={i === SERIES.length - 1 ? [4, 4, 0, 0] : 0} maxBarSize={36} isAnimationActive={false} />
               ))}
             </BarChart>
           </ResponsiveContainer>

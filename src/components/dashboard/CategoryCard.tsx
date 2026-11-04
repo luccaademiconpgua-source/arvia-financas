@@ -9,8 +9,8 @@ import { monthLong } from "./DashboardHero";
 import type { Category, Transaction } from "../../types";
 
 // ordem fixa: a cor acompanha a posição no ranking do mês, o "Outras categorias" é sempre cinza
-const COLORS = ["#0F766E", "#E11D48", "#D97706", "#4F46E5"];
-const OTHER = "#94A3B8";
+const COLORS = ["var(--color-cat-1)", "var(--color-cat-2)", "var(--color-cat-3)", "var(--color-cat-4)"];
+const OTHER = "var(--color-cat-other)";
 const colorFor = (name: string, i: number) => (name === "Outras categorias" ? OTHER : (COLORS[i] ?? OTHER));
 
 export function CategoryCard({ transactions, categories, ym }: { transactions: Transaction[]; categories: Category[]; ym: string }) {
@@ -38,7 +38,7 @@ export function CategoryCard({ transactions, categories, ym }: { transactions: T
                   innerRadius={54}
                   outerRadius={78}
                   paddingAngle={2}
-                  stroke="#fff"
+                  stroke="var(--color-card)"
                   strokeWidth={2}
                   onMouseEnter={(_, i) => setActive(i)}
                   onClick={(_, i) => setActive(i)}

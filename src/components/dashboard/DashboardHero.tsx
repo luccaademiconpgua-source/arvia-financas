@@ -12,8 +12,8 @@ import { useUI } from "../../store/ui";
 const monthShort = (ym: string) => format(parseISO(`${ym}-01`), "MMM", { locale: ptBR }).replace(".", "");
 export const monthLong = (ym: string) => format(parseISO(`${ym}-01`), "MMMM", { locale: ptBR });
 
-const INCOME = "#5EEAD4";
-const EXPENSE = "#FDA4AF";
+const INCOME = "var(--color-chart-income)";
+const EXPENSE = "var(--color-chart-expense)";
 
 type Props = {
   totalCents: number;
@@ -122,18 +122,18 @@ export function DashboardHero({ totalCents, accountsCount, points, selected, onS
         </div>
 
         <div className="grid grid-cols-3 gap-2 sm:gap-3 lg:col-span-12">
-          <div className="glass p-3 sm:p-4">
+          <div className="glass min-w-0 p-2.5 sm:p-4">
             <p className="flex items-center gap-1.5 text-xs text-white/75 sm:text-sm"><span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ background: INCOME }} />Receitas</p>
-            <p className="num font-display mt-1 text-base font-semibold sm:text-xl">{formatBrl(rec)}</p>
+            <p className="num font-display mt-1 text-sm font-semibold min-[400px]:text-base sm:text-xl">{formatBrl(rec)}</p>
             <p className="text-xs text-white/60 capitalize">{sel ? monthLong(sel.ym) : ""}</p>
           </div>
-          <div className="glass p-3 sm:p-4">
+          <div className="glass min-w-0 p-2.5 sm:p-4">
             <p className="flex items-center gap-1.5 text-xs text-white/75 sm:text-sm"><span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ background: EXPENSE }} />Despesas</p>
-            <p className="num font-display mt-1 text-base font-semibold sm:text-xl">{formatBrl(desp)}</p>
+            <p className="num font-display mt-1 text-sm font-semibold min-[400px]:text-base sm:text-xl">{formatBrl(desp)}</p>
           </div>
-          <div className="glass p-3 sm:p-4">
+          <div className="glass min-w-0 p-2.5 sm:p-4">
             <p className="text-xs text-white/75 sm:text-sm">Sobrou</p>
-            <p className="num font-display mt-1 text-base font-semibold sm:text-xl">{formatBrl(sobrou)}</p>
+            <p className="num font-display mt-1 text-sm font-semibold min-[400px]:text-base sm:text-xl">{formatBrl(sobrou)}</p>
             {pct !== null && <p className="text-xs text-white/70">{pct}% da receita</p>}
           </div>
         </div>

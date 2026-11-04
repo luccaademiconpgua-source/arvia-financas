@@ -6,8 +6,8 @@ import { shiftMonth } from "../../lib/clock";
 import { compact, monthLong } from "./DashboardHero";
 import type { Transaction } from "../../types";
 
-const CUR = "#E11D48";
-const PREV = "#94A3B8";
+const CUR = "var(--color-pace)";
+const PREV = "var(--color-pace-prev)";
 
 function Tip({ active, payload, label }: { active?: boolean; payload?: Array<{ dataKey: string; value: number | null }>; label?: number }) {
   if (!active || !payload?.length) return null;
@@ -45,12 +45,12 @@ export function PaceCard({ transactions, ym, today }: { transactions: Transactio
                   <stop offset="100%" stopColor={CUR} stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid stroke="#E2E8F0" vertical={false} />
-              <XAxis dataKey="day" tickLine={false} axisLine={false} interval={6} tick={{ fontSize: 12, fill: "#64748B" }} />
-              <YAxis tickLine={false} axisLine={false} width={48} tick={{ fontSize: 11, fill: "#64748B" }} tickFormatter={compact} />
-              <Tooltip content={<Tip />} cursor={{ stroke: "#94A3B8", strokeDasharray: "3 3" }} />
+              <CartesianGrid stroke="var(--color-line)" vertical={false} />
+              <XAxis dataKey="day" tickLine={false} axisLine={false} interval={6} tick={{ fontSize: 12, fill: "var(--color-muted)" }} />
+              <YAxis tickLine={false} axisLine={false} width={48} tick={{ fontSize: 11, fill: "var(--color-muted)" }} tickFormatter={compact} />
+              <Tooltip content={<Tip />} cursor={{ stroke: "var(--color-pace-prev)", strokeDasharray: "3 3" }} />
               <Line type="monotone" dataKey="anterior" stroke={PREV} strokeWidth={2} strokeDasharray="5 4" dot={false} activeDot={{ r: 4 }} isAnimationActive={false} connectNulls />
-              <Area type="monotone" dataKey="atual" stroke={CUR} strokeWidth={2} fill="url(#paceFill)" dot={false} activeDot={{ r: 5, stroke: "#fff", strokeWidth: 2 }} isAnimationActive={false} />
+              <Area type="monotone" dataKey="atual" stroke={CUR} strokeWidth={2} fill="url(#paceFill)" dot={false} activeDot={{ r: 5, stroke: "var(--color-card)", strokeWidth: 2 }} isAnimationActive={false} />
             </ComposedChart>
           </ResponsiveContainer>
         </div>

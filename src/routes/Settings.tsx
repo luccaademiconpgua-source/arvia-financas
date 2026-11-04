@@ -6,7 +6,7 @@ import { EmpresaCard } from "../components/EmpresaCard";
 import { Field, inputClass, PrimaryButton, SecondaryButton } from "../components/Sheet";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../store/auth";
-import { usePrefs } from "../store/prefs";
+import { usePrefs, type Theme } from "../store/prefs";
 import { useUI } from "../store/ui";
 import { useRefresh } from "../store/refresh";
 import { useData } from "../store/data";
@@ -20,7 +20,7 @@ const TABLES = ["accounts", "cards", "card_invoices", "categories", "goals", "de
 
 export function Settings() {
   const { profile, household, members, session, reload, signOut } = useAuth();
-  const { startMode, setStartMode } = usePrefs();
+  const { startMode, setStartMode, theme, setTheme } = usePrefs();
   const showToast = useUI((s) => s.showToast);
   const [draft, setDraft] = useState(profile?.name ?? "");
   const [error, setError] = useState("");
@@ -80,6 +80,13 @@ export function Settings() {
               <option value="pessoal">Pessoal</option>
               <option value="casa">Casa</option>
               {profile?.empresaName && <option value="empresa">Empresa</option>}
+            </select>
+          </Field>
+          <Field label="Aparência">
+            <select className={inputClass} value={theme} onChange={(e) => setTheme(e.target.value as Theme)}>
+              <option value="escuro">Escuro</option>
+              <option value="claro">Claro</option>
+              <option value="sistema">Igual ao celular ou computador</option>
             </select>
           </Field>
           <PrimaryButton type="submit" className="self-start">Salvar</PrimaryButton>

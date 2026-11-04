@@ -8,7 +8,7 @@ export function Sidebar() {
   const name = useAuth((s) => s.profile?.name ?? "");
   const mode = usePrefs((s) => s.mode);
   return (
-    <aside className="fixed inset-y-0 left-0 hidden w-[260px] flex-col bg-brand-dark py-6 text-white lg:flex" aria-label="Menu principal">
+    <aside className="sidebar fixed inset-y-0 left-0 hidden w-[260px] flex-col bg-brand-dark py-6 text-white lg:flex" aria-label="Menu principal">
       <p className="font-display mb-6 px-6 text-2xl font-semibold">Arvia</p>
       <nav className="sidebar-scroll flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overscroll-contain px-6 pb-4">
         {groupsFor(mode, ["/ajustes"]).map((g) => (

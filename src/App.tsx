@@ -26,9 +26,12 @@ import { NotFound } from "./routes/NotFound";
 import { Login } from "./routes/Login";
 import { HouseSetup } from "./routes/HouseSetup";
 import { NewPasswordForm } from "./components/NewPasswordForm";
+import { Presentation } from "./routes/Presentation";
+import { useThemeSync } from "./hooks/useTheme";
 
 export function App() {
   const { loading, session, household, init, recovering, setRecovering } = useAuth();
+  useThemeSync();
   const [skipHouse, setSkipHouse] = useState(() => {
     try {
       return localStorage.getItem("arvia-skip-house") === "1";
@@ -41,6 +44,8 @@ export function App() {
     void init();
   }, [init]);
 
+  // página pública de apresentação: abre sem login
+  if (window.location.pathname.replace(/\/$/, "") === "/apresentacao") return <Presentation signedIn={!!session} />;
   if (loading) return <p className="p-4 text-muted">Abrindo o Arvia…</p>;
   if (!session) return <Login linkExpired={recovering} />;
   if (recovering) {
