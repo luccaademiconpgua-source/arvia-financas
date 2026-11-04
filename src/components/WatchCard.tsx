@@ -28,6 +28,7 @@ export function WatchCard() {
   const [steps, setSteps] = useState(false);
   const [test, setTest] = useState("quanto gastei este mês?");
   const [answer, setAnswer] = useState("");
+  const personal = fresh ? `${ENDPOINT}?chave=${fresh}` : "";
 
   async function load() {
     const { data } = await supabase.from("watch_keys").select("id,hint,label,created_at,last_used_at").order("created_at", { ascending: false });
@@ -57,7 +58,9 @@ export function WatchCard() {
     if (!fresh) return;
     setAnswer("Pensando…");
     try {
-      const r = await fetch(ENDPOINT, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chave: fresh, texto: test }) });
+      const fd = new FormData();
+      fd.append("texto", test);
+      const r = await fetch(personal, { method: "POST", body: fd });
       setAnswer(await r.text());
     } catch {
       setAnswer("Não consegui falar com a Arvia agora.");
@@ -72,16 +75,16 @@ export function WatchCard() {
 
       {fresh ? (
         <div className="mt-3 flex flex-col gap-2 rounded-lg border border-brand p-3 text-sm">
-          <p className="font-medium">Sua chave do relógio (aparece só agora):</p>
+          <p className="font-medium">Seu endereço do relógio (aparece só agora, já com a sua chave):</p>
           <div className="flex items-center gap-2">
-            <code className="min-w-0 flex-1 break-all rounded bg-page px-2 py-1.5 text-xs">{fresh}</code>
-            <button type="button" aria-label="Copiar chave" onClick={() => void copy(fresh, () => showToast("Chave copiada"))} className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-line"><Copy size={16} aria-hidden="true" /></button>
+            <code className="min-w-0 flex-1 break-all rounded bg-page px-2 py-1.5 text-xs">{personal}</code>
+            <button type="button" aria-label="Copiar endereço" onClick={() => void copy(personal, () => showToast("Endereço copiado"))} className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-line"><Copy size={16} aria-hidden="true" /></button>
           </div>
-          <p className="text-xs text-muted">Quem tiver essa chave consegue lançar e consultar no seu nome. Não compartilhe. Se perder o relógio, apague a chave aqui.</p>
+          <p className="text-xs text-muted">Quem tiver esse endereço consegue lançar e consultar no seu nome. Não compartilhe. Se perder o relógio, apague a chave aqui embaixo.</p>
         </div>
       ) : (
         <PrimaryButton type="button" className="mt-3 flex items-center gap-2" disabled={busy} onClick={() => void create()}>
-          <Watch size={18} aria-hidden="true" /> Gerar chave do relógio
+          <Watch size={18} aria-hidden="true" /> {keys.length ? "Gerar endereço novo do relógio" : "Gerar endereço do relógio"}
         </PrimaryButton>
       )}
       {error && <p role="alert" className="mt-2 text-sm text-danger">{error}</p>}
@@ -91,24 +94,17 @@ export function WatchCard() {
       </button>
       {steps && (
         <ol className="mt-1 list-decimal space-y-2 pl-5 text-sm">
-          <li>No iPhone, abra o app <strong>Atalhos</strong>, toque em <strong>+</strong> e dê o nome <strong>Arvia</strong> (é o que você vai falar para a Siri).</li>
-          <li>Adicione a ação <strong>Ditar Texto</strong>. Em Idioma, escolha Português (Brasil).</li>
-          <li>
-            Adicione <strong>Obter Conteúdo do URL</strong> e cole este endereço:
-            <span className="mt-1 flex items-center gap-2">
-              <code className="min-w-0 flex-1 break-all rounded bg-page px-2 py-1 text-xs">{ENDPOINT}</code>
-              <button type="button" aria-label="Copiar endereço" onClick={() => void copy(ENDPOINT, () => showToast("Endereço copiado"))} className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-line"><Copy size={14} aria-hidden="true" /></button>
-            </span>
-          </li>
-          <li>Na mesma ação, toque na setinha para mostrar mais: <strong>Método</strong> POST. Em <strong>Cabeçalhos</strong>, adicione a chave <strong>x-arvia-chave</strong> com o valor da sua chave do relógio.</li>
-          <li>Em <strong>Corpo da Solicitação</strong>, escolha JSON, adicione um campo de Texto chamado <strong>texto</strong> e, no valor, escolha a variável <strong>Texto Ditado</strong>.</li>
-          <li>Adicione <strong>Falar Texto</strong> e escolha <strong>Conteúdo do URL</strong>. Assim o relógio fala o que foi lançado ou a resposta.</li>
-          <li>Toque no <strong>i</strong> do atalho e ligue <strong>Mostrar no Apple Watch</strong>.</li>
-          <li>No relógio, diga <strong>"E aí Siri, Arvia"</strong> ou ponha a complicação do Atalhos no mostrador para abrir com um toque.</li>
+          <li>No iPhone, abra o app <strong>Atalhos</strong> e toque em <strong>+</strong> (canto de cima). Toque no nome lá em cima, escolha <strong>Renomear</strong> e escreva <strong>Arvia</strong>.</li>
+          <li>Toque em <strong>Adicionar Ação</strong>, digite <strong>ditar</strong> na busca e escolha <strong>Ditar Texto</strong>.</li>
+          <li>Na busca de baixo, digite <strong>conteúdo</strong> e escolha <strong>Obter Conteúdo da URL</strong>. Toque na palavra azul <strong>URL</strong> e cole o seu endereço do relógio (o de cima, já com a chave).</li>
+          <li>Nessa mesma ação, toque na setinha <strong>&gt;</strong> para abrir as opções. Em <strong>Método</strong>, escolha <strong>POST</strong>. Em <strong>Corpo da Solicitação</strong>, deixe <strong>JSON</strong>, toque em <strong>Adicionar novo campo</strong> e escolha <strong>Texto</strong>. No nome do campo escreva <strong>texto</strong>; no valor, toque e escolha <strong>Texto Ditado</strong> (aparece logo acima do teclado).</li>
+          <li>Digite <strong>falar</strong> na busca e escolha <strong>Falar Texto</strong>. Ele já usa o <strong>Conteúdo da URL</strong> sozinho.</li>
+          <li>Toque no <strong>▶</strong> embaixo para testar no iPhone: fale "quanto gastei este mês?". Se ele responder, está certo.</li>
+          <li>Para o relógio: toque no nome do atalho lá em cima, depois em <strong>Detalhes</strong> (em alguns iPhones é o <strong>i</strong>) e ligue <strong>Mostrar no Apple Watch</strong>. No relógio, abra o app Atalhos ou diga <strong>"E aí Siri, Arvia"</strong>.</li>
         </ol>
       )}
       {steps && (
-        <p className="mt-2 text-xs text-muted">Para desfazer o que o relógio lançou, abra o atalho de novo e diga "desfazer" (vale para os últimos 30 minutos).</p>
+        <p className="mt-2 text-xs text-muted">Os nomes podem mudar um pouco conforme a versão do iPhone; buscar pela palavra (ditar, conteúdo, falar) sempre acha. Para desfazer o que o relógio lançou, abra o atalho e diga "desfazer" (vale por 30 minutos).</p>
       )}
 
       {fresh && (

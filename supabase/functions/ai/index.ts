@@ -387,23 +387,39 @@ async function handleWatch(admin: ReturnType<typeof createClient>, uid: string, 
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
-  if (req.method !== "POST") return json({ error: "Método não permitido." }, 405);
   const plain = (t: string, status = 200) => new Response(t, { status, headers: { ...cors, "content-type": "text/plain; charset=utf-8" } });
+  const qs = new URL(req.url).searchParams;
+  if (req.method !== "POST" && !(req.method === "GET" && qs.get("chave"))) return json({ error: "Método não permitido." }, 405);
   let watchMode = false;
   try {
     const url = Deno.env.get("SUPABASE_URL")!;
     const admin = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
-    const raw = await req.text();
     let body: Record<string, unknown> = {};
-    try {
-      body = raw ? JSON.parse(raw) : {};
-    } catch {
-      // o Atalhos pode mandar só o texto puro
-      body = { texto: raw };
+    const ctype = req.headers.get("content-type") ?? "";
+    if (req.method === "POST" && /form/i.test(ctype)) {
+      // Atalhos com corpo "Formulário"
+      try {
+        const fd = await req.formData();
+        for (const [k, v] of fd.entries()) body[k.toLowerCase()] = typeof v === "string" ? v : "";
+      } catch {
+        body = {};
+      }
+    } else if (req.method === "POST") {
+      const raw = await req.text();
+      try {
+        const parsed = raw ? JSON.parse(raw) : {};
+        body = parsed && typeof parsed === "object" ? parsed : { texto: String(parsed) };
+        if (body.Texto && !body.texto) body.texto = body.Texto;
+      } catch {
+        // o Atalhos pode mandar só o texto puro
+        body = { texto: raw };
+      }
     }
+    if (!body.texto && qs.get("texto")) body.texto = qs.get("texto");
 
-    // relógio: chave pessoal no header x-arvia-chave ou no corpo
-    const watchKey = (req.headers.get("x-arvia-chave") ?? String(body.chave ?? "")).trim();
+    // relógio: chave pessoal no endereço (?chave=), no header x-arvia-chave ou no corpo
+    const watchKey = (qs.get("chave") ?? req.headers.get("x-arvia-chave") ?? String(body.chave ?? "")).trim();
+    if (!watchKey && !req.headers.get("Authorization")) return plain("Falta a chave do relógio no endereço. Copie de novo o endereço nos Ajustes da Arvia.", 401);
     let uid: string;
     if (watchKey) {
       watchMode = true;
