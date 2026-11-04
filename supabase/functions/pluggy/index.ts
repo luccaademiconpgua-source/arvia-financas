@@ -217,8 +217,10 @@ async function syncOne(admin: any, apiKey: string, uid: string, itemId: string) 
     const label = /meu\s*pluggy/i.test(connector) ? "" : connector;
     const { data, error } = await admin.rpc("apply_pluggy_sync", { p_owner: uid, p_connector: label, p_accounts: full });
     if (error) throw new Error(error.message);
-    await mark({ status: "ok", last_error: null, last_sync_at: new Date().toISOString(), connector_name: connector });
-    return { item_id: itemId, connector, status: "ok", ...data };
+    // pelo MeuPluggy cada banco é uma conexão: guardamos o nome do banco para a lista ficar legível
+    const bank = label || String(accs[0]?.marketingName || accs[0]?.name || connector).slice(0, 60);
+    await mark({ status: "ok", last_error: null, last_sync_at: new Date().toISOString(), connector_name: bank });
+    return { item_id: itemId, connector: bank, status: "ok", ...data };
   } catch (e) {
     const msg = e instanceof HttpError ? e.message : `Falha ao gravar: ${e instanceof Error ? e.message.slice(0, 160) : "erro desconhecido"}`;
     await mark({ status: "erro", last_error: msg });

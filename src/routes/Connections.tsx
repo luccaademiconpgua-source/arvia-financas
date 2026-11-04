@@ -109,6 +109,9 @@ export function Connections() {
 
       {loading ? null : configured ? (
         <Card title="Open Finance: bancos conectados pelo Meu Pluggy">
+          <p className="mb-3 rounded-lg bg-page p-3 text-sm">
+            O Meu Pluggy libera <strong>um banco por vez</strong>. Para cada banco que você tem lá, toque em <strong>Conectar mais um banco</strong>, entre no Meu Pluggy e escolha um banco diferente. Cada conta vira uma carteira aqui, e os cartões de crédito aparecem em Cartões.
+          </p>
           {items.length === 0 ? (
             <p className="text-sm text-muted">Nenhum banco conectado ainda.</p>
           ) : (
@@ -116,7 +119,7 @@ export function Connections() {
               {items.map((it) => (
                 <li key={it.item_id} className="flex flex-wrap items-center justify-between gap-2 py-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{it.connector_name ?? "Banco"}</p>
+                    <p className="truncate text-sm font-medium">{it.connector_name && !/meu\s*pluggy/i.test(it.connector_name) ? it.connector_name : "Banco (sincronize para ver o nome)"}</p>
                     <p className="text-xs text-muted">
                       {it.status === "ok" ? `Atualizado ${ago(it.last_sync_at)}` : (it.last_error ?? "Falha na leitura")}
                     </p>
@@ -135,7 +138,7 @@ export function Connections() {
             </ul>
           )}
           <div className="mt-3 flex flex-wrap gap-2">
-            <PrimaryButton type="button" disabled={!!busy} onClick={() => onConnect()}>Conectar bancos</PrimaryButton>
+            <PrimaryButton type="button" disabled={!!busy} onClick={() => onConnect()}>{items.length ? "Conectar mais um banco" : "Conectar um banco"}</PrimaryButton>
             {items.length > 0 && (
               <SecondaryButton type="button" disabled={!!busy} onClick={onSync}>
                 {busy === "sync" ? "Sincronizando…" : "Sincronizar agora"}
@@ -157,7 +160,7 @@ export function Connections() {
       ) : (
         <Card title="Open Finance: conectar seus bancos pelo Meu Pluggy">
           <ol className="list-decimal space-y-1 pl-5 text-sm">
-            <li>Crie uma conta em <a className="underline" href="https://meu.pluggy.ai" target="_blank" rel="noreferrer">meu.pluggy.ai</a> e conecte seus bancos por lá.</li>
+            <li>Crie uma conta em <a className="underline" href="https://meu.pluggy.ai" target="_blank" rel="noreferrer">meu.pluggy.ai</a> e conecte seus bancos por lá. Depois, aqui na Arvia, você traz um banco de cada vez.</li>
             <li>Entre em <a className="underline" href="https://dashboard.pluggy.ai" target="_blank" rel="noreferrer">dashboard.pluggy.ai</a> com a mesma conta e crie uma aplicação.</li>
             <li>Na aplicação, ative o conector <strong>MeuPluggy</strong> e copie o <strong>Client ID</strong> e o <strong>Client Secret</strong>.</li>
             <li>Cole os dois abaixo. O segredo fica guardado cifrado no servidor e não volta para o seu navegador.</li>
